@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>不规则四边形图片裁剪工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            padding: 20px;
+            min-height: 100vh;
+            color: #e0f7fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(13, 19, 33, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4fc3f7;
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 30px;
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+            font-weight: 500;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
+        }
+
+        button:disabled {
+            background: linear-gradient(45deg, #616161, #9e9e9e);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            position: relative;
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        #canvas {
+            border: 1px solid rgba(64, 224, 208, 0.3);
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .info {
+            text-align: center;
+            color: #81d4fa;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 300;
+        }
+
+        .status {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .status.success {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+
+        .status.error {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .status.info {
+            background: rgba(52, 152, 219, 0.2);
+            color: #3498db;
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #00bcd4, #006064);
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 188, 212, 0.3);
+            font-weight: 500;
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 188, 212, 0.5);
+        }
+
+        .preview-container {
+            display: none;
+            text-align: center;
+            margin-top: 30px;
+            padding: 25px;
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        #previewCanvas {
+            border: 1px solid rgba(64, 224, 208, 0.3);
+            margin-top: 15px;
+            max-width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .download-btn {
+            margin-top: 20px;
+            background: linear-gradient(45deg, #4CAF50, #2E7D32);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .download-btn:hover {
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5);
+        }
+
+        .edit-mode {
+            background: rgba(33, 150, 243, 0.15);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #4fc3f7;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>不规则四边形图片裁剪工具</h1>
+
+        <div class="controls">
+            <label for="fileInput" class="file-label">选择图片</label>
+            <input type="file" id="fileInput" accept="image/*">
+            <button id="resetBtn">重置选区</button>
+            <button id="undoBtn" disabled>撤销</button>
+            <button id="redoBtn" disabled>重做</button>
+            <button id="cropBtn" disabled>裁剪图片</button>
+        </div>
+
+        <div class="info">
+            <p>点击四个点创建四边形选区，然后点击"裁剪图片"</p>
+            <p>状态: <span id="pointCount">0</span> / 4 个点已选择</p>
+        </div>
+
+        <div id="status" class="status info" style="display: none;"></div>
+
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div id="previewContainer" class="preview-container">
+            <h3>裁剪结果</h3>
+            <canvas id="previewCanvas"></canvas>
+            <br>
+            <button id="downloadBtn" class="download-btn">下载裁剪结果</button>
+        </div>
+    </div>
+
+    <script>
+        class ImageCropper {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.previewCanvas = document.getElementById('previewCanvas');
+                this.previewCtx = this.previewCtx = this.previewCanvas.getContext('2d');
+                this.image = null;
+                this.points = [];
+                this.history = [];
+                this.historyIndex = -1;
+                this.isDragging = false;
+                this.dragPointIndex = -1;
+
+                this.initEventListeners();
+                this.setupCanvasSize();
+            }
+
+            initEventListeners() {
+                document.getElementById('fileInput').addEventListener('change', (e) => this.loadImage(e));
+                document.getElementById('resetBtn').addEventListener('click', () => this.resetPoints());
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+                document.getElementById('cropBtn').addEventListener('click', () => this.cropImage());
+                document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
+
+                this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                window.addEventListener('resize', () => this.setupCanvasSize());
+            }
+
+            setupCanvasSize() {
+                if (this.image) {
+                    const maxWidth = Math.min(window.innerWidth - 100, this.image.width);
+                    const maxHeight = Math.min(window.innerHeight - 300, this.image.height);
+                    const scale = Math.min(maxWidth / this.image.width, maxHeight / this.image.height);
+
+                    this.canvas.width = this.image.width * scale;
+                    this.canvas.height = this.image.height * scale;
+                    this.drawImage();
+                }
+            }
+
+            loadImage(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.image = new Image();
+                    this.image.onload = () => {
+                        this.setupCanvasSize();
+                        this.resetPoints();
+                        this.showStatus('图片加载成功！请点击四个点创建四边形选区。', 'success');
+                    };
+                    this.image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            handleCanvasClick(e) {
+                if (this.isDragging) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (this.points.length < 4) {
+                    const scaleX = this.image.width / this.canvas.width;
+                    const scaleY = this.image.height / this.canvas.height;
+
+                    const originalPoint = {
+                        x: x * scaleX,
+                        y: y * scaleY
+                    };
+
+                    this.points.push(originalPoint);
+                    this.saveToHistory();
+                    this.drawImage();
+                    this.updatePointCount();
+
+                    if (this.points.length === 4) {
+                        this.showStatus('四边形选区创建完成！可以拖动调整或点击"裁剪图片"。', 'success');
+                    }
+                }
+            }
+
+            handleMouseDown(e) {
+                if (this.points.length !== 4) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const scaleX = this.canvas.width / this.image.width;
+                const scaleY = this.canvas.height / this.image.height;
+
+                // 检查是否点击了某个点
+                for (let i = 0; i < this.points.length; i++) {
+                    const point = this.points[i];
+                    const canvasX = point.x * scaleX;
+                    const canvasY = point.y * scaleY;
+
+                    if (Math.abs(x - canvasX) < 10 && Math.abs(y - canvasY) < 10) {
+                        this.isDragging = true;
+                        this.dragPointIndex = i;
+                        this.canvas.style.cursor = 'move';
+                        break;
+                    }
+                }
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging || this.dragPointIndex === -1) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const scaleX = this.image.width / this.canvas.width;
+                const scaleY = this.image.height / this.canvas.height;
+
+                this.points[this.dragPointIndex] = {
+                    x: x * scaleX,
+                    y: y * scaleY
+                };
+
+                this.drawImage();
+            }
+
+            handleMouseUp(e) {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    this.dragPointIndex = -1;
+                    this.canvas.style.cursor = 'crosshair';
+                    this.saveToHistory();
+                }
+            }
+
+            drawImage() {
+                if (!this.image) return;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // 绘制图片
+                this.ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height);
+
+                // 绘制四边形选区
+                if (this.points.length > 0) {
+                    this.ctx.strokeStyle = '#00FFFF';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.setLineDash([5, 5]);
+
+                    this.ctx.beginPath();
+                    const scaleX = this.canvas.width / this.image.width;
+                    const scaleY = this.canvas.height / this.image.height;
+
+                    this.ctx.moveTo(this.points[0].x * scaleX, this.points[0].y * scaleY);
+                    for (let i = 1; i < this.points.length; i++) {
+                        this.ctx.lineTo(this.points[i].x * scaleX, this.points[i].y * scaleY);
+                    }
+                    if (this.points.length === 4) {
+                        this.ctx.closePath();
+                    }
+                    this.ctx.stroke();
+
+                    // 绘制控制点
+                    this.ctx.fillStyle = '#FF5252';
+                    for (let i = 0; i < this.points.length; i++) {
+                        const point = this.points[i];
+                        const canvasX = point.x * scaleX;
+                        const canvasY = point.y * scaleY;
+
+                        this.ctx.beginPath();
+                        this.ctx.arc(canvasX, canvasY, 6, 0, 2 * Math.PI);
+                        this.ctx.fill();
+
+                        // 绘制点的编号
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.font = 'bold 12px Arial';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.fillText((i + 1).toString(), canvasX, canvasY + 4);
+                        this.ctx.fillStyle = '#FF5252';
+                    }
+
+                    this.ctx.setLineDash([]);
+                }
+            }
+
+            resetPoints() {
+                this.points = [];
+                this.history = [];
+                this.historyIndex = -1;
+                this.drawImage();
+                this.updatePointCount();
+                document.getElementById('cropBtn').disabled = true;
+                this.hideStatus();
+                document.getElementById('previewContainer').style.display = 'none';
+            }
+
+            saveToHistory() {
+                // 删除当前索引之后的历史记录
+                this.history = this.history.slice(0, this.historyIndex + 1);
+
+                // 添加新的历史记录
+                this.history.push([...this.points.map(p => ({...p}))]);
+                this.historyIndex++;
+
+                // 限制历史记录数量
+                if (this.history.length > 20) {
+                    this.history.shift();
+                    this.historyIndex--;
+                }
+
+                this.updateHistoryButtons();
+            }
+
+            undo() {
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    this.points = this.history[this.historyIndex].map(p => ({...p}));
+                    this.drawImage();
+                    this.updatePointCount();
+                    this.updateHistoryButtons();
+                }
+            }
+
+            redo() {
+                if (this.historyIndex < this.history.length - 1) {
+                    this.historyIndex++;
+                    this.points = this.history[this.historyIndex].map(p => ({...p}));
+                    this.drawImage();
+                    this.updatePointCount();
+                    this.updateHistoryButtons();
+                }
+            }
+
+            updateHistoryButtons() {
+                document.getElementById('undoBtn').disabled = this.historyIndex <= 0;
+                document.getElementById('redoBtn').disabled = this.historyIndex >= this.history.length - 1;
+            }
+
+            updatePointCount() {
+                document.getElementById('pointCount').textContent = this.points.length;
+                document.getElementById('cropBtn').disabled = this.points.length !== 4;
+            }
+
+            cropImage() {
+                if (this.points.length !== 4) {
+                    this.showStatus('请先选择四个点创建四边形选区！', 'error');
+                    return;
+                }
+
+                try {
+                    // 计算四边形的包围盒
+                    const minX = Math.min(...this.points.map(p => p.x));
+                    const maxX = Math.max(...this.points.map(p => p.x));
+                    const minY = Math.min(...this.points.map(p => p.y));
+                    const maxY = Math.max(...this.points.map(p => p.y));
+
+                    const width = maxX - minX;
+                    const height = maxY - minY;
+
+                    // 设置预览画布尺寸
+                    this.previewCanvas.width = width;
+                    this.previewCanvas.height = height;
+
+                    // 清空预览画布
+                    this.previewCtx.clearRect(0, 0, width, height);
+
+                    // 创建临时画布用于透视变换
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = this.image.width;
+                    tempCanvas.height = this.image.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(this.image, 0, 0);
+
+                    // 使用更精确的透视变换算法
+                    this.applyPerspectiveTransform(tempCanvas, this.previewCanvas);
+
+                    document.getElementById('previewContainer').style.display = 'block';
+                    this.showStatus('裁剪成功！您可以下载结果或继续调整选区。', 'success');
+
+                } catch (error) {
+                    this.showStatus('裁剪失败：' + error.message, 'error');
+                }
+            }
+
+            applyPerspectiveTransform(sourceCanvas, targetCanvas) {
+                const sourceCtx = sourceCanvas.getContext('2d');
+                const targetCtx = targetCanvas.getContext('2d');
+
+                const sourceWidth = sourceCanvas.width;
+                const sourceHeight = sourceCanvas.height;
+                const targetWidth = targetCanvas.width;
+                const targetHeight = targetCanvas.height;
+
+                // 获取源图像数据
+                const sourceData = sourceCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+                const targetData = targetCtx.createImageData(targetWidth, targetHeight);
+
+                // 计算四边形的包围盒
+                const minX = Math.min(...this.points.map(p => p.x));
+                const maxX = Math.max(...this.points.map(p => p.x));
+                const minY = Math.min(...this.points.map(p => p.y));
+                const maxY = Math.max(...this.points.map(p => p.y));
+
+                // 计算透视变换矩阵
+                const matrix = this.calculatePerspectiveMatrix(
+                    [{x: 0, y: 0}, {x: targetWidth, y: 0}, {x: targetWidth, y: targetHeight}, {x: 0, y: targetHeight}],
+                    this.points
+                );
+
+                // 应用透视变换
+                for (let y = 0; y < targetHeight; y++) {
+                    for (let x = 0; x < targetWidth; x++) {
+                        // 计算目标像素在源图像中的对应位置
+                        const sourceX = matrix[0] * x + matrix[1] * y + matrix[2];
+                        const sourceY = matrix[3] * x + matrix[4] * y + matrix[5];
+                        const sourceW = matrix[6] * x + matrix[7] * y + matrix[8];
+
+                        const normalizedX = sourceX / sourceW;
+                        const normalizedY = sourceY / sourceW;
+
+                        // 双线性插值
+                        const pixel = this.bilinearInterpolate(sourceData, normalizedX, normalizedY, sourceWidth, sourceHeight);
+                        const targetIndex = (y * targetWidth + x) * 4;
+
+                        targetData.data[targetIndex] = pixel.r;
+                        targetData.data[targetIndex + 1] = pixel.g;
+                        targetData.data[targetIndex + 2] = pixel.b;
+                        targetData.data[targetIndex + 3] = pixel.a;
+                    }
+                }
+
+                targetCtx.putImageData(targetData, 0, 0);
+            }
+
+            calculatePerspectiveMatrix(srcPoints, dstPoints) {
+                // 计算透视变换矩阵（3x3）
+                const matrix = new Array(9);
+
+                // 构建线性方程组
+                const A = [];
+                const b = [];
+
+                for (let i = 0; i < 4; i++) {
+                    A.push([srcPoints[i].x, srcPoints[i].y, 1, 0, 0, 0, -srcPoints[i].x * dstPoints[i].x, -srcPoints[i].y * dstPoints[i].x]);
+                    A.push([0, 0, 0, srcPoints[i].x, srcPoints[i].y, 1, -srcPoints[i].x * dstPoints[i].y, -srcPoints[i].y * dstPoints[i].y]);
+                    b.push(dstPoints[i].x);
+                    b.push(dstPoints[i].y);
+                }
+
+                // 使用高斯消元法求解线性方程组
+                const solution = this.solveLinearSystem(A, b);
+
+                matrix[0] = solution[0];
+                matrix[1] = solution[1];
+                matrix[2] = solution[2];
+                matrix[3] = solution[3];
+                matrix[4] = solution[4];
+                matrix[5] = solution[5];
+                matrix[6] = solution[6];
+                matrix[7] = solution[7];
+                matrix[8] = 1;
+
+                return matrix;
+            }
+
+            solveLinearSystem(A, b) {
+                const n = A.length;
+                const augmented = A.map((row, i) => [...row, b[i]]);
+
+                // 高斯消元
+                for (let i = 0; i < n; i++) {
+                    // 找到主元
+                    let maxRow = i;
+                    for (let k = i + 1; k < n; k++) {
+                        if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                            maxRow = k;
+                        }
+                    }
+
+                    // 交换行
+                    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+
+                    // 消元
+                    for (let k = i + 1; k < n; k++) {
+                        const factor = augmented[k][i] / augmented[i][i];
+                        for (let j = i; j < n + 1; j++) {
+                            augmented[k][j] -= factor * augmented[i][j];
+                        }
+                    }
+                }
+
+                // 回代
+                const solution = new Array(n);
+                for (let i = n - 1; i >= 0; i--) {
+                    solution[i] = augmented[i][n];
+                    for (let j = i + 1; j < n; j++) {
+                        solution[i] -= augmented[i][j] * solution[j];
+                    }
+                    solution[i] /= augmented[i][i];
+                }
+
+                return solution;
+            }
+
+            bilinearInterpolate(imageData, x, y, width, height) {
+                const x1 = Math.floor(x);
+                const y1 = Math.floor(y);
+                const x2 = Math.min(x1 + 1, width - 1);
+                const y2 = Math.min(y1 + 1, height - 1);
+
+                const dx = x - x1;
+                const dy = y - y1;
+
+                const getPixel = (px, py) => {
+                    const index = (py * width + px) * 4;
+                    return {
+                        r: imageData.data[index],
+                        g: imageData.data[index + 1],
+                        b: imageData.data[index + 2],
+                        a: imageData.data[index + 3]
+                    };
+                };
+
+                const p11 = getPixel(x1, y1);
+                const p12 = getPixel(x1, y2);
+                const p21 = getPixel(x2, y1);
+                const p22 = getPixel(x2, y2);
+
+                const interpolate = (c1, c2, c3, c4, dx, dy) => {
+                    const r1 = c1 * (1 - dx) + c2 * dx;
+                    const r2 = c3 * (1 - dx) + c4 * dx;
+                    return r1 * (1 - dy) + r2 * dy;
+                };
+
+                return {
+                    r: Math.round(interpolate(p11.r, p21.r, p12.r, p22.r, dx, dy)),
+                    g: Math.round(interpolate(p11.g, p21.g, p12.g, p22.g, dx, dy)),
+                    b: Math.round(interpolate(p11.b, p21.b, p12.b, p22.b, dx, dy)),
+                    a: Math.round(interpolate(p11.a, p21.a, p12.a, p22.a, dx, dy))
+                };
+            }
+
+            downloadResult() {
+                const link = document.createElement('a');
+                link.download = 'cropped_image.png';
+                link.href = this.previewCanvas.toDataURL();
+                link.click();
+                this.showStatus('图片下载成功！', 'success');
+            }
+
+            showStatus(message, type) {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`;
+                statusEl.style.display = 'block';
+
+                setTimeout(() => {
+                    this.hideStatus();
+                }, 3000);
+            }
+
+            hideStatus() {
+                document.getElementById('status').style.display = 'none';
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new ImageCropper();
+        });
+    </script>
+</body>
+</html>
