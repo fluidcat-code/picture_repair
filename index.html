@@ -232,10 +232,13 @@
                 // 画布交互
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
                 this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-                // this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-                // this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
                 document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
                 document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+                this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
 
                 window.addEventListener('resize', () => this.setupCanvasSize());
             }
@@ -514,7 +517,6 @@
                 const newImage = new Image();
                 newImage.onload = () => {
                     this.image = newImage;
-                    this.originalImage = newImage;
                     this.rotation = 0;
                     this.isRotated = false;
                     this.setupCanvasSize();
@@ -694,10 +696,7 @@
                         const imageX = x * (this.image.width / rect.width);
                         const imageY = y * (this.image.height / rect.height);
 
-                        const originalPoint = {
-                            x: imageX,
-                            y: imageY
-                        };
+                        const originalPoint = {x: imageX,y: imageY};
 
                         this.points.push(originalPoint);
                         this.drawImage();
@@ -708,6 +707,32 @@
                         }
                     }
                 }
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                if (!this.image) return;
+
+                const touch = e.touches[0];
+                this.handleMouseDown({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+            }
+            handleTouchMove(e) {
+                e.preventDefault(); // 防止触摸时页面滚动
+                if (!this.image) return;
+                const touch = e.touches[0];
+                // 模拟鼠标移动事件
+                this.handleMouseMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                });
+            }
+            handleTouchEnd(e) {
+                e.preventDefault();
+                if (!this.image) return;
+                this.handleMouseUp(e);
             }
 
             handleMouseDown(e) {
@@ -967,9 +992,9 @@
 
                         // 绘制控制点内圈（中心点）
                         // this.ctx.fillStyle = 'rgba(255, 82, 82, 0.8)';
-                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.fillStyle = '#0333ff';
                         this.ctx.beginPath();
-                        this.ctx.arc(canvasX, canvasY, 4, 0, 2 * Math.PI);
+                        this.ctx.arc(canvasX, canvasY, 6, 0, 2 * Math.PI);
                         this.ctx.fill();
                     }
 
@@ -1085,7 +1110,6 @@
                     const img = new Image();
                     img.onload = () => {
                         this.image = img;
-                        this.originalImage = img;
                         this.rotation = prevState.rotation;
                         this.isRotated = prevState.isRotated;
                         this.setupCanvasSize();
@@ -1105,7 +1129,6 @@
                     const img = new Image();
                     img.onload = () => {
                         this.image = img;
-                        this.originalImage = img;
                         this.rotation = nextState.rotation;
                         this.isRotated = nextState.isRotated;
                         this.setupCanvasSize();
@@ -1158,7 +1181,6 @@
                     const croppedImage = new Image();
                     croppedImage.onload = () => {
                         this.image = croppedImage;
-                        this.originalImage = croppedImage; // 更新原始图片为裁剪后的图片
                         this.rotation = 0; // 重置旋转角度
                         this.isRotated = false;
                         this.setupCanvasSize();
@@ -1389,18 +1411,6 @@
                 });
             }
 
-            downloadResult1() {
-                const link = document.createElement('a');
-                let canvases = document.getElementById('splitPreview')?.querySelectorAll('canvas') || [];
-                if (!canvases.length) canvases = [this.canvas];
-
-                link.download = `cropped_image_${this.rotation}deg.png`;
-                link.href = this.canvas.toDataURL();
-                link.click();
-                this.showStatus('图片下载成功！', 'success');
-            }
-
-
 
             printImages() {
                 let canvases = document.getElementById('splitPreview')?.querySelectorAll('canvas') || [];
@@ -1557,8 +1567,8 @@
                 if (!this.image) return;
                 
                 this.magnifier.style.display = 'block';
-                this.magnifier.style.left = clientX + 100 + 'px';
-                this.magnifier.style.top = clientY + 100 + 'px';
+                this.magnifier.style.left = clientX - 110 + 'px';
+                this.magnifier.style.top = clientY + 'px';
                 
                 const magnifierCanvas = document.getElementById('magnifierCanvas');
                 const magnifierCoords = document.getElementById('magnifierCoords');
