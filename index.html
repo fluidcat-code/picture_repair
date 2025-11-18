@@ -57,11 +57,448 @@
         #splitPreview { margin-top: 20px; padding: 15px; background: rgba(18, 27, 45, 0.6); border-radius: 10px; border: 1px solid rgba(64, 224, 208, 0.1); }
         #splitPreview h3 { color: #0333ff; margin-bottom: 15px; }
         #splitPreview canvas { max-width: 100%; height: auto; display: block; }
+
+        /* 滤镜调整样式 */
+        .filter-info { color: #81d4fa; font-size: 12px; margin-bottom: 10px; text-align: center; }
+        .image-selector { margin-bottom: 15px; text-align: center; }
+        .image-selector select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #4fc3f7;
+            background: rgba(18, 27, 45, 0.6);
+            color: #e0f7fa;
+            font-size: 13px;
+            width: 180px;
+        }
+        .filter-controls-compact { margin-bottom: 15px; }
+        .filter-row { display: flex; gap: 15px; margin-bottom: 10px; }
+        .filter-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .filter-label { color: #e0f7fa; font-size: 12px; font-weight: 500; }
+        .filter-slider {
+            width: 80px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .filter-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            cursor: pointer;
+        }
+        .filter-value { color: #4fc3f7; font-size: 11px; font-weight: 500; min-width: 35px; text-align: center; }
         .control-group { transition: all 0.3s ease; }
         .control-group h3 { position: relative; padding-left: 10px; }
         .control-group h3::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 16px; background: #4fc3f7; border-radius: 2px; }
         .footer {position: fixed;bottom: 0;left: 0;width: 100%;text-align: center;font-size: 12px;color: #888;padding: 5px 0;background: rgba(0, 0, 0, 0.5);transition: 0.3s;opacity: 0;transform: translateY(100%);}
         .footer.show {opacity: 1;transform: translateY(0);}
+
+        /* 打印预览样式 */
+        .print-preview {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            z-index: 1000;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        .print-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            /* margin-bottom: 30px; */
+            padding-bottom: 15px;
+            /* border-bottom: 1px solid rgba(64, 224, 208, 0.3); */
+        }
+
+        .print-header h2 {
+            color: #4fc3f7;
+            margin: 0;
+        }
+
+        .back-btn, .print-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 30px;
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover, .print-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.5);
+        }
+
+        .print-content {
+            background: rgba(13, 19, 33, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .print-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .print-content::-webkit-scrollbar-track {
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 3px;
+        }
+
+        .print-content::-webkit-scrollbar-thumb {
+            background: rgba(79, 195, 247, 0.6);
+            border-radius: 3px;
+        }
+
+        .print-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(79, 195, 247, 0.8);
+        }
+
+        .image-selection, .paper-preview-section, .filter-controls-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .image-selection h3, .paper-preview-section h3, .filter-controls-section h3 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .selection-options {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .selection-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #e0f7fa;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 8px;
+            background: rgba(18, 27, 45, 0.4);
+            transition: all 0.3s ease;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .selection-item:hover {
+            background: rgba(79, 195, 247, 0.2);
+            border-color: #4fc3f7;
+        }
+
+        .selection-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #4fc3f7;
+        }
+
+        .paper-previews {
+            display: flex;
+            /* gap: 5px; */
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        .paper-preview {
+            border: 2px dashed #4fc3f7;
+            border-bottom: none;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            /* padding: 20px; */
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            aspect-ratio: 210 / 297; /* A4比例 */
+            margin: 0 auto;
+        }
+        .paper-preview:last-child {
+            border-bottom: 2px dashed #4fc3f7;
+        }
+
+        .paper-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .paper-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            /* max-width: 600px; */
+            margin: 0 auto;
+        }
+
+        .paper-btn {
+            padding: 6px 12px;
+            border: 1px solid #4fc3f7;
+            background: rgba(18, 27, 45, 0.6);
+            color: #e0f7fa;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            min-width: 60px;
+        }
+
+        .paper-btn:hover {
+            background: rgba(79, 195, 247, 0.3);
+        }
+
+        .paper-btn.active {
+            background: #4fc3f7;
+            color: #0f2027;
+            font-weight: 500;
+        }
+
+        /* 排版控制样式 */
+        .layout-controls {
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .layout-controls h4 {
+            color: #4fc3f7;
+            margin-bottom: 12px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .layout-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .layout-btn {
+            padding: 6px 12px;
+            border: 1px solid #4fc3f7;
+            background: rgba(18, 27, 45, 0.6);
+            color: #e0f7fa;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            min-width: 60px;
+        }
+
+        .layout-btn:hover {
+            background: rgba(79, 195, 247, 0.3);
+        }
+
+        .layout-btn.active {
+            background: #4fc3f7;
+            color: #0f2027;
+            font-weight: 500;
+        }
+
+        .layout-settings {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #e0f7fa;
+            font-size: 12px;
+        }
+
+        .setting-item label {
+            white-space: nowrap;
+        }
+
+        .setting-item input[type="range"] {
+            width: 80px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            cursor: pointer;
+        }
+
+        .setting-item input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: #4fc3f7;
+        }
+
+        .setting-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .grid-settings {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: rgba(18, 27, 45, 0.4);
+            border-radius: 6px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .setting-item select {
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #4fc3f7;
+            background: rgba(18, 27, 45, 0.6);
+            color: #e0f7fa;
+            font-size: 12px;
+            width: 120px;
+        }
+
+        .setting-item input[type="number"] {
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #4fc3f7;
+            background: rgba(18, 27, 45, 0.6);
+            color: #e0f7fa;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .paper-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(79, 195, 247, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .preview-images-container {
+            width: 100%;
+            height: 100%;
+            /* padding: 15px; */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            /* gap: 0px; */
+            box-sizing: border-box;
+        }
+
+        .preview-images-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .preview-images-container::-webkit-scrollbar-track {
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 2px;
+        }
+
+        .preview-images-container::-webkit-scrollbar-thumb {
+            background: rgba(79, 195, 247, 0.6);
+            border-radius: 2px;
+        }
+
+        .preview-image-item {
+            width: 100%;
+            text-align: center;
+            /* border: 1px solid rgba(79, 195, 247, 0.3); */
+            /* border-radius: 6px; */
+            /* padding: 8px; */
+            background: rgba(255, 255, 255, 0.05);
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .preview-image-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            width: auto;
+            height: auto;
+        }
+
+
+
+        /* 打印样式 */
+        @media print {
+            body > *:not(.print-preview) {
+                display: none !important;
+            }
+
+            .print-preview {
+                display: block !important;
+                position: static !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                border: none !important;
+                backdrop-filter: none !important;
+                overflow: visible !important;
+            }
+
+            .print-content {
+                display: block !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                border: none !important;
+                backdrop-filter: none !important;
+            }
+
+
+            @page {
+                size: A4;
+                margin: 0;
+                padding: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -134,6 +571,46 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="control-group">
+                        <h3>滤镜调整</h3>
+                        <div class="filter-info">滤镜仅应用于当前编辑后图片</div>
+                        <div class="image-selector">
+                            <select id="filterImageSelector">
+                                <option value="main">编辑后的主图</option>
+                            </select>
+                        </div>
+                        <div class="filter-controls-compact">
+                            <div class="filter-row">
+                                <div class="filter-item">
+                                    <span class="filter-label">亮度</span>
+                                    <input type="range" id="brightness" class="filter-slider" min="0" max="200" value="100">
+                                    <span class="filter-value" id="brightness-value">100%</span>
+                                </div>
+                                <div class="filter-item">
+                                    <span class="filter-label">对比度</span>
+                                    <input type="range" id="contrast" class="filter-slider" min="0" max="200" value="100">
+                                    <span class="filter-value" id="contrast-value">100%</span>
+                                </div>
+                            </div>
+                            <div class="filter-row">
+                                <div class="filter-item">
+                                    <span class="filter-label">饱和度</span>
+                                    <input type="range" id="saturate" class="filter-slider" min="0" max="200" value="100">
+                                    <span class="filter-value" id="saturate-value">100%</span>
+                                </div>
+                                <div class="filter-item">
+                                    <span class="filter-label">灰度</span>
+                                    <input type="range" id="grayscale" class="filter-slider" min="0" max="100" value="0">
+                                    <span class="filter-value" id="grayscale-value">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button id="applyToAllBtn">应用到所有编辑图片</button>
+                            <button id="resetFiltersBtn">重置滤镜</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="status" class="status info" style="display: none;"></div>
             </div>
@@ -141,6 +618,111 @@
             <div class="right-panel">
                 <div class="canvas-container">
                     <canvas id="canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- 打印预览容器 - 与主编辑页同级 -->
+            <div id="printPreview" class="print-preview" style="display: none;">
+                    <div class="print-header">
+                        <button id="backToEditBtn" class="back-btn">← 返回编辑</button>
+                        <h2>打印预览</h2>
+                        <button id="startPrintBtn" class="print-btn">开始打印</button>
+                    </div>
+
+                    <div class="print-content">
+                        <div class="image-selection">
+                            <h3>选择要打印的图片</h3>
+                            <div class="selection-options">
+                                <label class="selection-item">
+                                    <input type="checkbox" id="printEdited" checked>
+                                    <span>编辑后的图片</span>
+                                </label>
+                                <label class="selection-item">
+                                    <input type="checkbox" id="printSplit">
+                                    <span>切割后的图片</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="paper-preview-section">
+                            <h3>纸张预览</h3>
+                            <div class="paper-selector">
+                                <div class="paper-buttons">
+                                    <button class="paper-btn active" data-paper="A4">A4</button>
+                                    <button class="paper-btn" data-paper="A3">A3</button>
+                                    <button class="paper-btn" data-paper="A5">A5</button>
+                                    <button class="paper-btn" data-paper="Letter">信纸</button>
+                                    <button class="paper-btn" data-paper="Legal">法律专用纸</button>
+                                    <button class="paper-btn" data-paper="Tabloid">Tabloid</button>
+                                    <button class="paper-btn" data-paper="Statement">Statement</button>
+                                    <button class="paper-btn" data-paper="Executive">Executive</button>
+                                    <button class="paper-btn" data-paper="B4">B4</button>
+                                    <button class="paper-btn" data-paper="B5">B5</button>
+                                </div>
+                            </div>
+
+                            <!-- 排版控制区域 -->
+                            <div class="layout-controls">
+                                <h4>排版设置</h4>
+                                <div class="layout-buttons">
+                                    <button class="layout-btn active" data-layout="single">一图一纸</button>
+                                    <button class="layout-btn" data-layout="grid">网格布局</button>
+                                    <button class="layout-btn" data-layout="vertical">纵向排列</button>
+                                    <button class="layout-btn" data-layout="horizontal">横向排列</button>
+                                </div>
+
+                                <!-- 网格布局设置 -->
+                                <div class="grid-settings" id="gridSettings" style="display: none;">
+                                    <div class="setting-row">
+                                        <div class="setting-item">
+                                            <label>横向数量:</label>
+                                            <input type="number" id="gridCols" min="1" max="8" value="2" style="width: 50px;">
+                                        </div>
+                                        <div class="setting-item">
+                                            <label>纵向数量:</label>
+                                            <input type="number" id="gridRows" min="1" max="8" value="2" style="width: 50px;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="layout-settings">
+                                    <div class="setting-item">
+                                        <label>图片间距:</label>
+                                        <input type="range" id="spacingSlider" min="0" max="30" value="10">
+                                        <span id="spacingValue">10px</span>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>纸张边距:</label>
+                                        <input type="range" id="marginSlider" min="0" max="30" value="15">
+                                        <span id="marginValue">15px</span>
+                                    </div>
+                                    <div class="setting-row">
+                                        <div class="setting-item">
+                                            <label>水平对齐:</label>
+                                            <select id="horizontalAlign">
+                                                <option value="center">居中</option>
+                                                <option value="left">左边</option>
+                                                <option value="right">右边</option>
+                                            </select>
+                                        </div>
+                                        <div class="setting-item">
+                                            <label>缩放模式:</label>
+                                            <select id="scaleMode">
+                                                <option value="contain">等比缩放占满</option>
+                                                <option value="cover">平铺占满</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="paper-previews" id="paperPreviewsContainer">
+                                <!-- 多张纸张预览将在这里动态生成 -->
+                            </div>
+                        </div>
+
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -189,6 +771,28 @@
                 // 模式相关属性
                 this.currentMode = null; // 'crop' 或 'split'
 
+                // 滤镜相关属性
+                this.filters = {
+                    main: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 }
+                };
+                this.currentFilterImage = 'main';
+                this.splitImages = [];
+
+                // 打印预览相关属性
+                this.printPreview = document.getElementById('printPreview');
+                this.printFilters = {};
+                this.selectedImages = [];
+                this.prePrintState = null;
+
+                // 排版相关属性
+                this.layoutMode = 'single'; // 'single', 'grid', 'vertical', 'horizontal'
+                this.spacing = 0; // 图片间距
+                this.margin = 0; // 纸张边距
+                this.gridCols = 2; // 网格布局列数
+                this.gridRows = 2; // 网格布局行数
+                this.horizontalAlign = 'center'; // 'center', 'left', 'right'
+                this.scaleMode = 'contain'; // 'contain', 'cover'
+
                 this.initEventListeners();
                 this.setupCanvasSize();
             }
@@ -221,6 +825,86 @@
                 document.getElementById('cropSwitchBtn').addEventListener('click', () => this.toggleCropMode());
                 document.getElementById('splitSwitchBtn').addEventListener('click', () => this.toggleSplitMode());
 
+                // 滤镜事件监听
+                document.getElementById('filterImageSelector').addEventListener('change', (e) => this.changeFilterImage(e.target.value));
+                document.getElementById('brightness').addEventListener('input', (e) => this.updateFilter('brightness', e.target.value));
+                document.getElementById('contrast').addEventListener('input', (e) => this.updateFilter('contrast', e.target.value));
+                document.getElementById('saturate').addEventListener('input', (e) => this.updateFilter('saturate', e.target.value));
+                document.getElementById('grayscale').addEventListener('input', (e) => this.updateFilter('grayscale', e.target.value));
+                document.getElementById('applyToAllBtn').addEventListener('click', () => this.applyFiltersToAll());
+                document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
+
+                // 打印预览事件监听
+                document.getElementById('printBtn').addEventListener('click', () => this.showPrintPreview());
+                document.getElementById('backToEditBtn').addEventListener('click', () => this.hidePrintPreview());
+                document.getElementById('startPrintBtn').addEventListener('click', () => this.startPrint());
+
+                // 纸张选择事件监听
+                document.querySelectorAll('.paper-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const paperType = e.target.dataset.paper;
+                        document.querySelectorAll('.paper-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.updatePaperPreview(paperType);
+                    });
+                });
+
+                // 图片选择事件监听
+                document.getElementById('printEdited').addEventListener('change', () => this.updatePrintImages());
+                document.getElementById('printSplit').addEventListener('change', () => this.updatePrintImages());
+
+                // 排版控制事件监听
+                document.querySelectorAll('.layout-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const layout = e.target.dataset.layout;
+                        document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.layoutMode = layout;
+
+                        // 显示/隐藏网格设置
+                        const gridSettings = document.getElementById('gridSettings');
+                        gridSettings.style.display = layout === 'grid' ? 'block' : 'none';
+
+                        this.updatePaperPreview();
+                    });
+                });
+
+                document.getElementById('spacingSlider').addEventListener('input', (e) => {
+                    this.spacing = parseInt(e.target.value);
+                    document.getElementById('spacingValue').textContent = this.spacing + 'px';
+                    this.updatePaperPreview();
+                });
+
+                document.getElementById('marginSlider').addEventListener('input', (e) => {
+                    this.margin = parseInt(e.target.value);
+                    document.getElementById('marginValue').textContent = this.margin + 'px';
+                    this.updatePaperPreview();
+                });
+
+                document.getElementById('gridCols').addEventListener('input', (e) => {
+                    this.gridCols = parseInt(e.target.value) || 1;
+                    this.updatePaperPreview();
+                });
+
+                document.getElementById('gridRows').addEventListener('input', (e) => {
+                    this.gridRows = parseInt(e.target.value) || 1;
+                    this.updatePaperPreview();
+                });
+
+                document.getElementById('horizontalAlign').addEventListener('change', (e) => {
+                    this.horizontalAlign = e.target.value;
+                    this.updatePaperPreview();
+                });
+
+                document.getElementById('scaleMode').addEventListener('change', (e) => {
+                    this.scaleMode = e.target.value;
+                    this.updatePaperPreview();
+                });
+
+                // 打印事件监听
+                window.addEventListener('beforeprint', () => this.prepareForPrint());
+                window.addEventListener('afterprint', () => this.restoreAfterPrint());
+
                 // 旋转控制
                 document.getElementById('rotateSlider').addEventListener('input', (e) => this.handleRotation(e.target.value));
                 document.getElementById('rotateInput').addEventListener('input', (e) => this.handleRotation(e.target.value));
@@ -240,7 +924,12 @@
                 this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
                 this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
 
-                window.addEventListener('resize', () => this.setupCanvasSize());
+                window.addEventListener('resize', () => {
+                    this.setupCanvasSize();
+                    if (this.printPreview.style.display === 'block') {
+                        this.updatePaperPreview();
+                    }
+                });
             }
             
             // 切割功能相关方法
@@ -465,6 +1154,17 @@
                     const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
                     canvas.width = region.width;
                     canvas.height = region.height;
+
+                    // 应用滤镜到分割图
+                    const splitImageId = `split_${index + 1}`;
+                    const splitFilters = this.filters[splitImageId] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                    let filterStr = '';
+                    filterStr += `brightness(${splitFilters.brightness}%) `;
+                    filterStr += `contrast(${splitFilters.contrast}%) `;
+                    filterStr += `saturate(${splitFilters.saturate}%) `;
+                    filterStr += `grayscale(${splitFilters.grayscale}%) `;
+                    ctx.filter = filterStr.trim();
+
                     ctx.drawImage(this.image,region.x, region.y, region.width, region.height, 0, 0, region.width, region.height);
 
                     // 创建容器
@@ -483,6 +1183,9 @@
                     // 添加画布
                     itemContainer.appendChild(canvas);
                     gridContainer.appendChild(itemContainer);
+
+                    // 为分割图添加滤镜支持
+                    this.addSplitImageFilter(splitImageId);
                 });
 
                 this.showStatus('切割预览已生成，点击任意切割图可作为新图片使用', 'success');
@@ -523,26 +1226,97 @@
                     this.resetPoints(); // 重置选区点，但不清空历史记录
                     this.clearSplitLines(); // 清除切割线
                     this.currentMode = null; // 重置模式
-                    
+
                     // 重置按钮状态
                     document.getElementById('cropSwitchBtn').textContent = '点击开始裁剪';
                     document.getElementById('cropSwitchBtn').disabled = false;
                     document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
                     document.getElementById('splitSwitchBtn').disabled = false;
-                    
+
                     // 移除预览容器
                     const previewContainer = document.getElementById('splitPreview');
                     if (previewContainer) {
                         previewContainer.remove();
                     }
-                    
+
                     document.getElementById('downloadBtn').disabled = false;
                     document.getElementById('printBtn').disabled = false; // 启用打印按钮
                     this.showStatus('已将切割图作为新图片，可以继续编辑或下载结果。', 'success');
-                    
+
                     this.saveToHistory();
                 };
                 newImage.src = canvas.toDataURL();
+            }
+
+            // 滤镜相关方法
+            changeFilterImage(imageId) {
+                this.currentFilterImage = imageId;
+                this.updateFilterControls();
+            }
+
+            updateFilter(type, value) {
+                if (!this.filters[this.currentFilterImage]) {
+                    this.filters[this.currentFilterImage] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                }
+
+                this.filters[this.currentFilterImage][type] = parseInt(value);
+                document.getElementById(`${type}-value`).textContent = value + (type === 'grayscale' ? '%' : '%');
+                this.drawImage();
+            }
+
+            updateFilterControls() {
+                const currentFilters = this.filters[this.currentFilterImage] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+
+                document.getElementById('brightness').value = currentFilters.brightness;
+                document.getElementById('contrast').value = currentFilters.contrast;
+                document.getElementById('saturate').value = currentFilters.saturate;
+                document.getElementById('grayscale').value = currentFilters.grayscale;
+
+                document.getElementById('brightness-value').textContent = currentFilters.brightness + '%';
+                document.getElementById('contrast-value').textContent = currentFilters.contrast + '%';
+                document.getElementById('saturate-value').textContent = currentFilters.saturate + '%';
+                document.getElementById('grayscale-value').textContent = currentFilters.grayscale + '%';
+            }
+
+            applyFiltersToAll() {
+                const currentFilters = { ...this.filters[this.currentFilterImage] };
+
+                // 应用到主图
+                this.filters.main = { ...currentFilters };
+
+                // 应用到所有分割图
+                Object.keys(this.filters).forEach(key => {
+                    if (key.startsWith('split_')) {
+                        this.filters[key] = { ...currentFilters };
+                    }
+                });
+
+                this.drawImage();
+                this.showStatus('滤镜已应用到所有编辑图片', 'success');
+            }
+
+            resetFilters() {
+                if (this.currentFilterImage === 'main') {
+                    this.filters.main = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                } else {
+                    this.filters[this.currentFilterImage] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                }
+
+                this.updateFilterControls();
+                this.drawImage();
+                this.showStatus('滤镜已重置', 'success');
+            }
+
+            addSplitImageFilter(imageId) {
+                if (!this.filters[imageId]) {
+                    this.filters[imageId] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                }
+
+                const selector = document.getElementById('filterImageSelector');
+                const option = document.createElement('option');
+                option.value = imageId;
+                option.textContent = `分割图 ${imageId.replace('split_', '')}`;
+                selector.appendChild(option);
             }
 
             setupCanvasSize() {
@@ -564,6 +1338,10 @@
                     document.getElementById('cropSwitchBtn').disabled = true;
                     document.getElementById('cropSwitchBtn').disabled = true;
                     document.getElementById('splitSwitchBtn').disabled = true;
+
+                    // 禁用打印和下载按钮
+                    document.getElementById('printBtn').disabled = true;
+                    document.getElementById('downloadBtn').disabled = true;
                 }
             }
 
@@ -947,8 +1725,20 @@
 
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+                // 应用滤镜效果
+                const currentFilters = this.filters.main || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                let filterStr = '';
+                filterStr += `brightness(${currentFilters.brightness}%) `;
+                filterStr += `contrast(${currentFilters.contrast}%) `;
+                filterStr += `saturate(${currentFilters.saturate}%) `;
+                filterStr += `grayscale(${currentFilters.grayscale}%) `;
+                this.ctx.filter = filterStr.trim();
+
                 // 绘制图片
                 this.ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height);
+
+                // 重置滤镜
+                this.ctx.filter = 'none';
 
                 // 绘制四边形选区
                 if (this.points.length > 0) {
@@ -1416,141 +2206,6 @@
             }
 
 
-            printImages() {
-                let canvases = document.getElementById('splitPreview')?.querySelectorAll('canvas') || [];
-                if (!canvases.length) canvases = [this.canvas];
-
-                const defaultFilters = {brightness:103,contrast:108,saturate:95,'hue-rotate':0.5,grayscale:0,sepia:0,invert:0};
-                const filterConfig = {
-                    brightness:['亮度', '%', 0, 200, '灰背景 深 → 浅'],
-                    contrast:['对比度', '%', 0, 200, '字体 模糊 → 清晰'],
-                    saturate:['饱和度', '%', 0, 200,''],
-                    'hue-rotate':['色相旋转', 'deg', 0, 360,''],
-                    grayscale:['灰度', '%', 0, 100,''],
-                    sepia:['棕褐色', '%', 0, 100,''],
-                    invert:['反色', '%', 0, 100,'']
-                };
-                const unitMap = JSON.stringify(Object.fromEntries(Object.entries(filterConfig).map(([k,[,u]])=>[k,u])));
-                const css = `
-                    body{padding:20px;font-family:Arial,sans-serif;background:#f5f5f5;margin:0;}
-                    .header{text-align:center;margin-bottom:30px;}
-                    .header h1{color:#333;margin:0 0 15px;}
-                    .print-btn{padding:10px 30px;font-size:16px;background:#4285f4;color:#fff;border:none;border-radius:4px;cursor:pointer;transition:background 0.3s;}
-                    .print-btn:hover{background:#3367d6;}
-                    .print-wrapper{display:block;}
-                    .print-item{display:flex;flex-direction:row;background:#fff;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,0.1);overflow:hidden;margin-bottom:25px;}
-                    .print-image{display:flex;align-items:center;justify-content:center;background:#f9f9f9;}
-                    .print-image img{max-width:100%;border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
-                    .filter-controls{flex:1;padding:30px;border-left:1px solid #eee;max-width: 25%;}
-                    .filter-group{margin-bottom:18px;}
-                    .filter-label{display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px;color:#555;font-weight:500;}
-                    .filter-range{width:100%;height:6px;-webkit-appearance:none;appearance:none;background:#e0e0e0;border-radius:3px;outline:none;}
-                    .filter-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#4285f4;cursor:pointer;transition:background 0.3s;}
-                    .filter-range::-webkit-slider-thumb:hover{background:#3367d6;}
-                    .print-single-btn{width:100%;padding:10px;margin-top:10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:15px;transition:background 0.3s;font-weight:500;}
-                    .print-single-btn:hover{background:#d97706;}
-                    .apply-all-btn{width:100%;padding:10px;margin-top:20px;background:#34a853;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:15px;transition:background 0.3s;font-weight:500;}
-                    .apply-all-btn:hover{background:#2d8f46;}
-                    .hide-print-item{display:none!important;}
-                    .image-title{font-size:18px;color:#333;margin:0 0 15px;text-align:center;}
-                    @media (max-width:768px){
-                        .print-item{flex-direction:column;}
-                        .filter-controls{border-left:none;border-top:1px solid #eee;}
-                    }
-                    @media print{
-                        body{padding:0;background:#fff;}
-                        body>*:not(.print-wrapper){display:none;} /* 隐藏标题、打印按钮 */
-                        .print-wrapper{display:block;width:100%;}
-                        .print-item{display:block;margin:0;border:none;box-shadow:none;} /* 去掉卡片样式 */
-                        .filter-controls{display:none!important;} /* 隐藏滤镜控件 */
-                        .print-image{padding:0;width:100vw!important;height:100vh!important;margin:0;}
-                        .print-image img{object-fit:fill!important;object-position:center!important;max-width:none!important;max-height:none!important;width:100vw!important;height:100vh!important;mix-blend-mode:multiply!important;background:transparent!important;}
-                        @page{size:A4;margin:0;padding:0;}
-                    }
-                `;
-
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>A4打印预览</title><style>${css}</style></head><body><div class="header"><h1>A4打印预览</h1><button class="print-btn" onclick="window.print()">开始打印</button></div><div class="print-wrapper">`);
-
-                // 生成图片+控件组合（直接放在 print-wrapper 里）
-                canvases.forEach((canvas, i) => {
-                    const imgData = canvas.toDataURL();
-                    printWindow.document.write(`
-                        <div class="print-item">
-                            <div class="print-image">
-                                <img id="print-img-${i}" src="${imgData}" alt="切割图片 ${i+1}">
-                            </div>
-                            <div class="filter-controls">
-                                ${Object.entries(filterConfig).map(([key,[name,unit,min,max,tip]])=>`
-                                    <div class="filter-group">
-                                        <div class="filter-label">
-                                            <span>${name} (${key.charAt(0).toUpperCase()+key.slice(1)})&nbsp;&nbsp;&nbsp;${tip}</span>
-                                            <span id="${key}-value-${i}">${defaultFilters[key]}${unit}</span>
-                                        </div>
-                                        <input type="range" class="filter-range" id="${key}-${i}" min="${min}" max="${max}" value="${defaultFilters[key]}">
-                                    </div>
-                                `).join('')}
-                                <button class="apply-all-btn" onclick="applyToAll(${i})">应用到全部图片</button>
-                                <button class="print-single-btn" onclick="printSingleImage(${i})">单独打印当前图片</button>
-                            </div>
-                        </div>
-                    `);
-                });
-
-                printWindow.document.write(`
-                    </div>
-                    <script>
-                        const imageCount = ${canvases.length};
-                        const filterKeys = Object.keys(${JSON.stringify(filterConfig)});
-                        const unitMap = ${unitMap};
-                        const el = id => document.getElementById(id);
-
-                        for(let i=0;i<imageCount;i++){
-                            const controls = filterKeys.reduce((obj,key)=>{obj[key] = el(\`\${key}-\${i}\`);return obj;},{});
-                            const printImg = el(\`print-img-\${i}\`);
-                            const updateFilters = () => {let filterStr = '';filterKeys.forEach(key => {const value = controls[key].value;const unit = unitMap[key];const valueEl = el(\`\${key}-value-\${i}\`);if(valueEl) valueEl.textContent = \`\${value}\${unit}\`;filterStr += \`\${key}(\${value}\${unit}) \`;});if(printImg) printImg.style.filter = filterStr.trim();};
-                            filterKeys.forEach(key => controls[key].addEventListener('input', updateFilters));
-                            updateFilters();
-                        }
-                        function applyToAll(sourceIndex){
-                            const sourceVals = filterKeys.reduce((obj,key)=>{obj[key] = el(\`\${key}-\${sourceIndex}\`).value;return obj;},{});
-
-                            for(let i=0;i<imageCount;i++){
-                                if(i === sourceIndex) continue;
-                                filterKeys.forEach(key => {
-                                    const control = el(\`\${key}-\${i}\`);
-                                    if(control){
-                                        control.value = sourceVals[key];
-                                        control.dispatchEvent(new Event('input'));
-                                    }
-                                });
-                            }
-                        }
-                        function printSingleImage(targetIndex){
-                                const printItems = [];
-                                for(let i=0;i<imageCount;i++){
-                                    const item = el(\`print-img-\${i}\`).parentNode.parentNode;
-                                    printItems.push({element: item, hasHideClass: item.classList.contains('hide-print-item')});
-                                    if(i !== targetIndex){
-                                        item.classList.add('hide-print-item');
-                                    }
-                                }
-
-                                setTimeout(() => {
-                                    window.print();
-                                    printItems.forEach(({element, hasHideClass}) => {
-                                        if(!hasHideClass){
-                                            element.classList.remove('hide-print-item');
-                                        }
-                                    });
-                                }, 100);
-                            }
-                    <\/script></body></html>
-                `);
-
-                printWindow.document.close();
-                printWindow.focus();
-            }
 
             showStatus(message, type) {
                 const statusEl = document.getElementById('status');
@@ -1630,6 +2285,462 @@
             
             hideMagnifier() {
                 this.magnifier.style.display = 'none';
+            }
+
+            // 打印预览相关方法
+            showPrintPreview() {
+                if (!this.image) {
+                    this.showStatus('请先选择图片！', 'error');
+                    return;
+                }
+
+                this.printPreview.style.display = 'block';
+                this.updatePrintImages();
+                this.showStatus('已进入打印预览模式', 'success');
+            }
+
+            hidePrintPreview() {
+                this.printPreview.style.display = 'none';
+            }
+
+
+            updateSinglePaperPreview(paperType) {
+                if (!this.image) return;
+
+                const paperAspectRatios = {
+                    'A4': 210 / 297,
+                    'A3': 297 / 420,
+                    'A5': 148 / 210,
+                    'Letter': 216 / 279,
+                    'Legal': 216 / 356,
+                    'Tabloid': 279 / 432,
+                    'Statement': 140 / 216,
+                    'Executive': 184 / 267,
+                    'B4': 257 / 364,
+                    'B5': 182 / 257
+                };
+
+                const aspectRatio = paperAspectRatios[paperType];
+                const paperPreviewsContainer = document.getElementById('paperPreviewsContainer');
+
+                // 清空纸张预览容器
+                paperPreviewsContainer.innerHTML = '';
+
+                // 获取当前选择的图片
+                const selectedImages = this.getSelectedImagesForPreview();
+
+                if (selectedImages.length === 0) {
+                    const emptyMessage = document.createElement('div');
+                    emptyMessage.textContent = '请选择要打印的图片';
+                    emptyMessage.style.color = '#81d4fa';
+                    emptyMessage.style.textAlign = 'center';
+                    emptyMessage.style.padding = '20px';
+                    paperPreviewsContainer.appendChild(emptyMessage);
+                    return;
+                }
+
+                // 根据布局模式计算纸张数量
+                const totalPages = this.calculateTotalPages(selectedImages.length);
+
+                // 为每张纸创建预览
+                for (let page = 0; page < totalPages; page++) {
+                    const paperPreview = document.createElement('div');
+                    paperPreview.className = 'paper-preview';
+                    paperPreview.style.aspectRatio = aspectRatio;
+
+                    const paperLabel = document.createElement('div');
+                    paperLabel.className = 'paper-label';
+                    paperLabel.textContent = `${paperType} (第${page + 1}页)`;
+
+                    const previewImagesContainer = document.createElement('div');
+                    previewImagesContainer.className = 'preview-images-container';
+
+                    // 获取当前页的图片
+                    const pageImages = this.getPageImages(selectedImages, page);
+
+                    // 应用布局算法
+                    this.applyLayout(pageImages, previewImagesContainer, aspectRatio);
+
+                    paperPreview.appendChild(paperLabel);
+                    paperPreview.appendChild(previewImagesContainer);
+                    paperPreviewsContainer.appendChild(paperPreview);
+                }
+            }
+
+            calculateTotalPages(totalImages) {
+                switch (this.layoutMode) {
+                    case 'single':
+                        return totalImages; // 一图一纸
+                    case 'grid':
+                        const gridCapacity = this.gridCols * this.gridRows;
+                        return Math.ceil(totalImages / gridCapacity);
+                    case 'vertical':
+                        return Math.ceil(totalImages / 2);
+                    case 'horizontal':
+                        return Math.ceil(totalImages / 2);
+                    default:
+                        return Math.ceil(totalImages / 4);
+                }
+            }
+
+            getPageImages(selectedImages, page) {
+                let imagesPerPage;
+                switch (this.layoutMode) {
+                    case 'single':
+                        imagesPerPage = 1;
+                        break;
+                    case 'grid':
+                        imagesPerPage = this.gridCols * this.gridRows;
+                        break;
+                    case 'vertical':
+                    case 'horizontal':
+                        imagesPerPage = 2;
+                        break;
+                    default:
+                        imagesPerPage = 4;
+                }
+
+                const startIndex = page * imagesPerPage;
+                const endIndex = Math.min(startIndex + imagesPerPage, selectedImages.length);
+                return selectedImages.slice(startIndex, endIndex);
+            }
+
+            applyLayout(pageImages, container, aspectRatio) {
+                // 获取纸张预览容器的实际宽度
+                const paperPreviewsContainer = document.getElementById('paperPreviewsContainer');
+                const containerWidth = paperPreviewsContainer ? Math.min(paperPreviewsContainer.clientWidth, 600) : 400;
+                const containerHeight = containerWidth / aspectRatio;
+                const usableWidth = containerWidth - this.margin * 2 - 4;
+                const usableHeight = containerHeight - this.margin * 2 - 2;
+
+                container.style.cssText = `
+                    width: 100%;
+                    height: 100%;
+                    padding: ${this.margin}px;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    gap: ${this.spacing}px;
+                `;
+
+                switch (this.layoutMode) {
+                    case 'single':
+                        this.applySingleLayout(pageImages, container, usableWidth, usableHeight);
+                        break;
+                    case 'grid':
+                        this.applyGridLayout(pageImages, container, usableWidth, usableHeight);
+                        break;
+                    case 'vertical':
+                        this.applyVerticalLayout(pageImages, container, usableWidth, usableHeight);
+                        break;
+                    case 'horizontal':
+                        this.applyHorizontalLayout(pageImages, container, usableWidth, usableHeight);
+                        break;
+                }
+            }
+
+            applySingleLayout(images, container, usableWidth, usableHeight) {
+                // 一图一纸：单张图片占满整个纸张
+                images.forEach(img => {
+                    this.createImageElement(img, container, usableWidth, usableHeight, true);
+                });
+            }
+
+            applyGridLayout(images, container, usableWidth, usableHeight) {
+                const rows = this.gridRows;
+                const cols = this.gridCols;
+                const itemWidth = usableWidth / cols - this.spacing * (cols - 1) / cols;
+                const itemHeight = usableHeight / rows - this.spacing * (rows - 1) / rows;
+
+                // 创建网格容器
+                const gridContainer = document.createElement('div');
+                gridContainer.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    gap: ${this.spacing}px;
+                    flex: 1;
+                `;
+
+                for (let row = 0; row < rows; row++) {
+                    const rowContainer = document.createElement('div');
+                    rowContainer.style.cssText = `
+                        display: flex;
+                        gap: ${this.spacing}px;
+                        flex: 1;
+                    `;
+
+                    for (let col = 0; col < cols; col++) {
+                        const index = row * cols + col;
+                        if (index < images.length) {
+                            this.createImageElement(images[index], rowContainer, itemWidth, itemHeight, true);
+                        } else {
+                            // 空白单元格
+                            const emptyCell = document.createElement('div');
+                            emptyCell.style.cssText = `
+                                width: ${itemWidth}px;
+                                height: ${itemHeight}px;
+                                background: rgba(255, 255, 255, 0.05);
+                                border: 1px dashed rgba(79, 195, 247, 0.3);
+                                border-radius: 4px;
+                            `;
+                            rowContainer.appendChild(emptyCell);
+                        }
+                    }
+
+                    gridContainer.appendChild(rowContainer);
+                }
+
+                container.appendChild(gridContainer);
+            }
+
+            applyVerticalLayout(images, container, usableWidth, usableHeight) {
+                const itemHeight = usableHeight / images.length - this.spacing * (images.length - 1) / images.length;
+                images.forEach(img => {
+                    this.createImageElement(img, container, usableWidth, itemHeight, true);
+                });
+            }
+
+            applyHorizontalLayout(images, container, usableWidth, usableHeight) {
+                const row = document.createElement('div');
+                row.style.cssText = `
+                    display: flex;
+                    gap: ${this.spacing}px;
+                    flex: 1;
+                `;
+
+                const itemWidth = usableWidth / images.length - this.spacing * (images.length - 1) / images.length;
+                images.forEach(img => {
+                    this.createImageElement(img, row, itemWidth, usableHeight, true);
+                });
+
+                container.appendChild(row);
+            }
+
+            createImageElement(imageData, container, maxWidth, maxHeight, autoScale) {
+                const imgContainer = document.createElement('div');
+
+                // 设置水平对齐
+                let justifyContent = 'center';
+                switch (this.horizontalAlign) {
+                    case 'left':
+                        justifyContent = 'flex-start';
+                        break;
+                    case 'right':
+                        justifyContent = 'flex-end';
+                        break;
+                    default:
+                        justifyContent = 'center';
+                }
+
+                imgContainer.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: ${justifyContent};
+                    overflow: hidden;
+                    /*order: 1px solid rgba(79, 195, 247, 0.3);*/
+                    border-radius: 4px;
+                    background: rgba(255, 255, 255, 0.05);
+                `;
+
+                const img = document.createElement('img');
+                img.src = imageData.canvas.toDataURL();
+                img.alt = imageData.title;
+
+                if (autoScale) {
+                    // 根据缩放模式处理图片
+                    const aspectRatio = imageData.canvas.width / imageData.canvas.height;
+
+                    if (this.scaleMode === 'cover') {
+                        // 平铺占满：图片完全覆盖容器，可能被裁剪
+                        img.style.width = `${maxWidth}px`;
+                        img.style.height = `${maxHeight}px`;
+                        img.style.objectFit = 'cover';
+                        imgContainer.style.width = `${maxWidth}px`;
+                        imgContainer.style.height = `${maxHeight}px`;
+                    } else {
+                        // 等比缩放占满：保持比例，完整显示图片
+                        let width = maxWidth;
+                        let height = maxWidth / aspectRatio;
+
+                        if (height > maxHeight) {
+                            height = maxHeight;
+                            width = maxHeight * aspectRatio;
+                        }
+
+                        img.style.width = `${width}px`;
+                        img.style.height = `${height}px`;
+                        img.style.objectFit = 'contain';
+                        imgContainer.style.width = `${maxWidth}px`;
+                        imgContainer.style.height = `${maxHeight}px`;
+                    }
+                } else {
+                    // 保持原始大小，但限制最大尺寸
+                    img.style.maxWidth = `${maxWidth}px`;
+                    img.style.maxHeight = `${maxHeight}px`;
+                    img.style.width = 'auto';
+                    img.style.height = 'auto';
+                    img.style.objectFit = 'contain';
+                    imgContainer.style.width = `${maxWidth}px`;
+                    imgContainer.style.height = `${maxHeight}px`;
+                }
+
+                imgContainer.appendChild(img);
+                container.appendChild(imgContainer);
+            }
+
+            getSelectedImagesForPreview() {
+                const selectedImages = [];
+
+                // 获取用户选择的图片类型
+                const printEdited = document.getElementById('printEdited').checked;
+                const printSplit = document.getElementById('printSplit').checked;
+
+                // 添加编辑后的图片
+                if (printEdited && this.image) {
+                    selectedImages.push({
+                        type: 'edited',
+                        title: '编辑后的图片',
+                        canvas: this.createFilteredCanvas(this.image)
+                    });
+                }
+
+                // 添加切割后的图片
+                if (printSplit) {
+                    const splitCanvases = document.querySelectorAll('#splitPreview canvas');
+                    splitCanvases.forEach((canvas, index) => {
+                        selectedImages.push({
+                            type: 'split',
+                            title: `切割图 ${index + 1}`,
+                            canvas: this.createFilteredCanvas(canvas)
+                        });
+                    });
+                }
+
+                return selectedImages;
+            }
+
+
+            updatePaperPreview(paperType = null) {
+                if (!paperType) {
+                    const activePaper = document.querySelector('.paper-btn.active');
+                    if (activePaper) {
+                        paperType = activePaper.dataset.paper;
+                    } else {
+                        paperType = 'A4';
+                    }
+                }
+                this.updateSinglePaperPreview(paperType);
+            }
+
+            updatePrintImages() {
+                this.selectedImages = [];
+
+                // 获取用户选择的图片类型
+                const printEdited = document.getElementById('printEdited').checked;
+                const printSplit = document.getElementById('printSplit').checked;
+
+                // 添加编辑后的图片（带滤镜效果）
+                if (printEdited && this.image) {
+                    this.selectedImages.push({
+                        type: 'edited',
+                        title: '编辑后的图片',
+                        canvas: this.createFilteredCanvas(this.image)
+                    });
+                }
+
+                // 添加切割后的图片（带滤镜效果）
+                if (printSplit) {
+                    const splitCanvases = document.querySelectorAll('#splitPreview canvas');
+                    splitCanvases.forEach((canvas, index) => {
+                        this.selectedImages.push({
+                            type: 'split',
+                            title: `切割图 ${index + 1}`,
+                            canvas: this.createFilteredCanvas(canvas)
+                        });
+                    });
+                }
+
+                // 更新纸张预览
+                this.updatePaperPreview();
+            }
+
+            createFilteredCanvas(source) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // 设置画布尺寸
+                if (source instanceof HTMLImageElement) {
+                    canvas.width = source.width;
+                    canvas.height = source.height;
+                } else if (source instanceof HTMLCanvasElement) {
+                    canvas.width = source.width;
+                    canvas.height = source.height;
+                }
+
+                // 应用滤镜
+                let filterStr = '';
+                Object.entries(this.printFilters).forEach(([key, value]) => {
+                    const unit = key === 'hue-rotate' ? 'deg' : '%';
+                    filterStr += `${key}(${value}${unit}) `;
+                });
+
+                ctx.filter = filterStr.trim();
+
+                // 绘制图片
+                if (source instanceof HTMLImageElement) {
+                    ctx.drawImage(source, 0, 0);
+                } else if (source instanceof HTMLCanvasElement) {
+                    ctx.drawImage(source, 0, 0);
+                }
+
+                return canvas;
+            }
+
+            startPrint() {
+                if (this.selectedImages.length === 0) {
+                    this.showStatus('请至少选择一张图片进行打印！', 'error');
+                    return;
+                }
+
+                // 显示打印提示
+                const confirmPrint = confirm(`即将开始打印 ${this.selectedImages.length} 张图片。\n\n请在浏览器打印对话框中选择纸张大小和打印方向。\n\n点击"确定"继续打印。`);
+
+                if (confirmPrint) {
+                    window.print();
+                }
+            }
+
+            prepareForPrint() {
+                // 保存当前状态
+                this.prePrintState = {
+                    hiddenElements: []
+                };
+
+                // 隐藏打印预览中的非打印元素
+                const printPreviewElements = this.printPreview.querySelectorAll('*:not(.print-content)');
+                printPreviewElements.forEach(el => {
+                    if (el.style.display !== 'none' && !el.classList.contains('print-content')) {
+                        this.prePrintState.hiddenElements.push(el);
+                        el.style.display = 'none';
+                    }
+                });
+
+                // 添加打印类
+                document.body.classList.add('printing');
+            }
+
+            restoreAfterPrint() {
+                if (!this.prePrintState) return;
+
+                // 恢复隐藏的元素
+                this.prePrintState.hiddenElements.forEach(el => {
+                    el.style.display = '';
+                });
+
+                // 移除打印类
+                document.body.classList.remove('printing');
+
+                this.prePrintState = null;
             }
         }
 
