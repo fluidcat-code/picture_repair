@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片编辑打印</title>
     <style>
-        html {overflow-y: scroll;}
+        html {overflow-y: scroll;font-size: 16px;}
         html::-webkit-scrollbar {width: 0.1px;}
         html::-webkit-scrollbar-thumb {background: transparent;}
         html:hover::-webkit-scrollbar-thumb {background: #ccc;border-radius: 1px;}
@@ -28,7 +28,7 @@
         .canvas-container { background: rgba(18, 27, 45, 0.6); border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: center; border: 1px solid rgba(64, 224, 208, 0.1); }
         #canvas { border: 1px solid rgba(64, 224, 208, 0.3); cursor: crosshair; max-width: 100%; height: auto; background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); }
         .info { background: rgba(33, 150, 243, 0.15); border: 1px solid rgba(33, 150, 243, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 15px; text-align: center; color: #81d4fa; font-weight: 300; }
-        .status { text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; letter-spacing: 0.5px; }
+        .status { position: fixed; left: 16%; bottom: 20px; text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; letter-spacing: 0.5px; }
         .status.success { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
         .status.error { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
         .status.info { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.3); }
@@ -99,55 +99,79 @@
 
         /* 打印预览样式 */
         .print-preview {
-            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            /* background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); */
             z-index: 1000;
-            overflow: hidden;
-            padding: 20px;
+            /* overflow: hidden; */
+            /* padding: 20px; */
         }
 
-        .print-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            /* margin-bottom: 30px; */
-            padding-bottom: 15px;
-            /* border-bottom: 1px solid rgba(64, 224, 208, 0.3); */
-        }
-
-        .print-header h2 {
-            color: #4fc3f7;
-            margin: 0;
-        }
-
-        .back-btn, .print-btn {
-            padding: 10px 20px;
+        /* 悬浮按钮样式 */
+        .floating-btn {
+            padding: 12px 12px;
             border: none;
-            border-radius: 30px;
+            border-radius: 0px;
             background: linear-gradient(45deg, #2196F3, #21CBF3);
             color: white;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+            transition: opacity 0.3s ease, height 0.3s ease;
+            min-width: 0px;
+            width: 100%;
+            height: 3rem;
+            flex: none;
         }
 
-        .back-btn:hover, .print-btn:hover {
+        .floating-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.5);
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.6);
+        }
+
+        .fixed-btn-group {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            right: 11rem;
+            bottom: 11rem;
+            gap: 0px;
+            border-radius: 5px;
+            overflow: hidden;
+            width: 5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .floating-btn.hidden {
+            opacity: 0; /* 透明 */
+            height: 0; /* 高度收缩为0 */
+            padding: 0; /* 清除内边距，不占空间 */
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .floating-back {
+                left: 10px;
+                bottom: 10px;
+            }
+
+            .floating-print {
+                right: 10px;
+                bottom: 10px;
+            }
+
+            .floating-btn {
+                padding: 10px 20px;
+                font-size: 13px;
+            }
         }
 
         .print-content {
-            background: rgba(13, 19, 33, 0.8);
-            border-radius: 15px;
-            padding: 30px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(64, 224, 208, 0.2);
-            max-height: calc(100vh - 40px);
-            overflow-y: auto;
+            display: flex;
+            gap: 30px;
         }
 
         .print-content::-webkit-scrollbar {
@@ -168,7 +192,7 @@
             background: rgba(79, 195, 247, 0.8);
         }
 
-        .image-selection, .paper-preview-section, .filter-controls-section {
+        .paper-preview-section {
             margin-bottom: 30px;
             padding: 20px;
             background: rgba(18, 27, 45, 0.6);
@@ -176,10 +200,66 @@
             border: 1px solid rgba(64, 224, 208, 0.1);
         }
 
-        .image-selection h3, .paper-preview-section h3, .filter-controls-section h3 {
-            color: #4fc3f7;
+        /* 紧凑布局样式 */
+        .compact-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 20px;
             margin-bottom: 15px;
-            font-weight: 500;
+        }
+
+        /* 调整各部分的间距和内边距 */
+        .paper-preview-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .image-selection {
+            margin-bottom: 5px;
+            padding: 0px;
+            background: rgba(18, 27, 45, 0.4);
+            border-radius: 8px;
+            border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .layout-controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(18, 27, 45, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .compact-section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .compact-section-header h3,
+            .compact-section-header h4 {
+                white-space: normal;
+            }
+
+            .paper-preview-section {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+
+            .layout-controls {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
         }
 
         .selection-options {
@@ -218,13 +298,15 @@
 
         .paper-previews {
             display: flex;
-            /* gap: 5px; */
             flex-wrap: wrap;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             flex-direction: column;
-            padding: 10px;
+            width: 600px;
+            margin: 0 auto;
+            flex: 1;
         }
+
 
         .paper-preview {
             border: 2px dashed #4fc3f7;
@@ -235,9 +317,6 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            /* padding: 20px; */
-            width: 100%;
-            max-width: 600px;
             height: auto;
             aspect-ratio: 210 / 297; /* A4比例 */
             margin: 0 auto;
@@ -257,7 +336,7 @@
             gap: 8px;
             justify-content: center;
             /* max-width: 600px; */
-            margin: 0 auto;
+            /* margin: 0 auto; */
         }
 
         .paper-btn {
@@ -269,7 +348,7 @@
             cursor: pointer;
             font-size: 13px;
             transition: all 0.3s ease;
-            min-width: 60px;
+            min-width: 91px;
         }
 
         .paper-btn:hover {
@@ -459,53 +538,78 @@
             width: auto;
             height: auto;
         }
-
-
+        .main-page {
+            transition: transform 0.3s ease-in-out;
+            z-index: 1;
+        }
+        .page.active {
+            transform: translateX(0);
+            z-index: 10; 
+        }
+        .page:not(.active) {
+            transform: translateX(100%);
+        }
+        #print-main {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
 
         /* 打印样式 */
-        @media print {
-            body > *:not(.print-preview) {
+         @media print {
+            .paper-label,
+            body > *:not(#print-main) {
                 display: none !important;
             }
-
-            .print-preview {
-                display: block !important;
-                position: static !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                margin: 0 !important;
+            body {
+                background: none !important;
                 padding: 0 !important;
-                background: white !important;
-                border: none !important;
-                backdrop-filter: none !important;
-                overflow: visible !important;
+                color: none !important;
             }
-
-            .print-content {
-                display: block !important;
-                width: 100% !important;
-                height: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: white !important;
+            
+            .paper-preview {
+                /* page-break-before: always; */
+                page-break-after: always;
+                page-break-inside: avoid; 
                 border: none !important;
-                backdrop-filter: none !important;
             }
-
+            .empty-cell {
+                border: none !important;
+            }
 
             @page {
                 size: A4;
                 margin: 0;
                 padding: 0;
             }
-        }
+         }
+         
+         @media (max-width: 576px) {
+            .paper-previews {
+                width: 200px;
+            }
+         }
+         @media (max-width: 768px) {
+            .paper-previews {
+                width: 300px;
+            }
+         }
+         @media (max-width: 992px) {
+            .paper-previews {
+                width: 500px;
+            }
+         }
+         @media (max-width: 1200px) {
+            .paper-previews {
+                width: 600px;
+            }
+         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>图片编辑打印</h1>
+        <!-- <h1>图片编辑打印</h1> -->
 
-        <div class="main-content">
+        <div id="editPreview" class="main-content page active">
             <div class="left-panel">
                 <div class="controls">
                     <div class="control-group">
@@ -513,8 +617,7 @@
                         <div class="button-group">
                             <label for="fileInput" class="file-label">选择图片</label>
                             <input type="file" id="fileInput" accept="image/*">
-                            <button id="downloadBtn" class="download-btn" disabled>下载结果</button>
-                            <button id="printBtn" disabled>打印图片</button>
+                            <button id="downloadBtn" class="download-btn" disabled hover="">下载所有图片</button>
                         </div>
                         <div class="button-group">
                             <button id="undoBtn" disabled>撤销</button>
@@ -574,10 +677,9 @@
 
                     <div class="control-group">
                         <h3>滤镜调整</h3>
-                        <div class="filter-info">滤镜仅应用于当前编辑后图片</div>
                         <div class="image-selector">
                             <select id="filterImageSelector">
-                                <option value="main">编辑后的主图</option>
+                                <option value="main">编辑主图</option>
                             </select>
                         </div>
                         <div class="filter-controls-compact">
@@ -607,12 +709,11 @@
                             </div>
                         </div>
                         <div class="button-group">
-                            <button id="applyToAllBtn">应用到所有编辑图片</button>
+                            <button id="applyToAllBtn">应用到所有图片</button>
                             <button id="resetFiltersBtn">重置滤镜</button>
                         </div>
                     </div>
                 </div>
-                <div id="status" class="status info" style="display: none;"></div>
             </div>
 
             <div class="right-panel">
@@ -620,113 +721,122 @@
                     <canvas id="canvas"></canvas>
                 </div>
             </div>
-
-            <!-- 打印预览容器 - 与主编辑页同级 -->
-            <div id="printPreview" class="print-preview" style="display: none;">
-                    <div class="print-header">
-                        <button id="backToEditBtn" class="back-btn">← 返回编辑</button>
-                        <h2>打印预览</h2>
-                        <button id="startPrintBtn" class="print-btn">开始打印</button>
-                    </div>
-
-                    <div class="print-content">
-                        <div class="image-selection">
-                            <h3>选择要打印的图片</h3>
-                            <div class="selection-options">
-                                <label class="selection-item">
-                                    <input type="checkbox" id="printEdited" checked>
-                                    <span>编辑后的图片</span>
-                                </label>
-                                <label class="selection-item">
-                                    <input type="checkbox" id="printSplit">
-                                    <span>切割后的图片</span>
-                                </label>
+        </div>
+        <!-- 打印预览容器 - 与主编辑页同级 -->
+        <div id="printPreview" class="print-preview page" style="display: none;">
+            <div class="print-content">
+                <div class="left-panel">
+                    <div class="controls">
+                        <div class="control-group">
+                            <h3>选择图片</h3>
+                            <div class="compact-section-header">
+                                <div class="selection-options">
+                                    <label class="selection-item">
+                                        <input type="checkbox" id="printEdited" >
+                                        <span>编辑后的图片</span>
+                                    </label>
+                                    <label class="selection-item">
+                                        <input type="checkbox" id="printSplit" checked>
+                                        <span>切割后的图片</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>纸张预览</h3>
+                            <div class="paper-buttons">
+                                <button class="paper-btn active" data-paper="A4">A4</button>
+                                <button class="paper-btn" data-paper="A3">A3</button>
+                                <button class="paper-btn" data-paper="A5">A5</button>
+                                <button class="paper-btn" data-paper="B4">B4</button>
+                                <button class="paper-btn" data-paper="B5">B5</button>
+                                <button class="paper-btn" data-paper="Letter">信纸</button>
+                                <button class="paper-btn" data-paper="Legal">法律专用纸</button>
+                                <button class="paper-btn" data-paper="Tabloid">Tabloid</button>
+                                <button class="paper-btn" data-paper="Statement">Statement</button>
+                                <button class="paper-btn" data-paper="Executive">Executive</button>
                             </div>
                         </div>
 
-                        <div class="paper-preview-section">
-                            <h3>纸张预览</h3>
-                            <div class="paper-selector">
-                                <div class="paper-buttons">
-                                    <button class="paper-btn active" data-paper="A4">A4</button>
-                                    <button class="paper-btn" data-paper="A3">A3</button>
-                                    <button class="paper-btn" data-paper="A5">A5</button>
-                                    <button class="paper-btn" data-paper="Letter">信纸</button>
-                                    <button class="paper-btn" data-paper="Legal">法律专用纸</button>
-                                    <button class="paper-btn" data-paper="Tabloid">Tabloid</button>
-                                    <button class="paper-btn" data-paper="Statement">Statement</button>
-                                    <button class="paper-btn" data-paper="Executive">Executive</button>
-                                    <button class="paper-btn" data-paper="B4">B4</button>
-                                    <button class="paper-btn" data-paper="B5">B5</button>
-                                </div>
-                            </div>
-
-                            <!-- 排版控制区域 -->
-                            <div class="layout-controls">
-                                <h4>排版设置</h4>
+                        <!-- 排版控制区域 -->
+                        <div class="control-group">
+                            <h3>排版设置</h3>
+                            <div class="compact-section-header">
                                 <div class="layout-buttons">
                                     <button class="layout-btn active" data-layout="single">一图一纸</button>
                                     <button class="layout-btn" data-layout="grid">网格布局</button>
                                     <button class="layout-btn" data-layout="vertical">纵向排列</button>
                                     <button class="layout-btn" data-layout="horizontal">横向排列</button>
                                 </div>
+                            </div>
 
-                                <!-- 网格布局设置 -->
-                                <div class="grid-settings" id="gridSettings" style="display: none;">
-                                    <div class="setting-row">
-                                        <div class="setting-item">
-                                            <label>横向数量:</label>
-                                            <input type="number" id="gridCols" min="1" max="8" value="2" style="width: 50px;">
-                                        </div>
-                                        <div class="setting-item">
-                                            <label>纵向数量:</label>
-                                            <input type="number" id="gridRows" min="1" max="8" value="2" style="width: 50px;">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="layout-settings">
+                            <!-- 网格布局设置 -->
+                            <div class="grid-settings" id="gridSettings" style="display: none;">
+                                <div class="setting-row">
                                     <div class="setting-item">
-                                        <label>图片间距:</label>
-                                        <input type="range" id="spacingSlider" min="0" max="30" value="10">
-                                        <span id="spacingValue">10px</span>
+                                        <label>横向数量:</label>
+                                        <input type="number" id="gridCols" min="1" max="8" value="2" style="width: 50px;">
                                     </div>
                                     <div class="setting-item">
-                                        <label>纸张边距:</label>
-                                        <input type="range" id="marginSlider" min="0" max="30" value="15">
-                                        <span id="marginValue">15px</span>
-                                    </div>
-                                    <div class="setting-row">
-                                        <div class="setting-item">
-                                            <label>水平对齐:</label>
-                                            <select id="horizontalAlign">
-                                                <option value="center">居中</option>
-                                                <option value="left">左边</option>
-                                                <option value="right">右边</option>
-                                            </select>
-                                        </div>
-                                        <div class="setting-item">
-                                            <label>缩放模式:</label>
-                                            <select id="scaleMode">
-                                                <option value="contain">等比缩放占满</option>
-                                                <option value="cover">平铺占满</option>
-                                            </select>
-                                        </div>
+                                        <label>纵向数量:</label>
+                                        <input type="number" id="gridRows" min="1" max="8" value="2" style="width: 50px;">
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="paper-previews" id="paperPreviewsContainer">
-                                <!-- 多张纸张预览将在这里动态生成 -->
+                            <div class="layout-settings">
+                                <div class="setting-item">
+                                    <label>图片间距:</label>
+                                    <input type="range" id="spacingSlider" min="0" max="100" value="0">
+                                    <span id="spacingValue">0px</span>
+                                </div>
+                                <div class="setting-item">
+                                    <label>纸张边距:</label>
+                                    <input type="range" id="marginSlider" min="0" max="100" value="0">
+                                    <span id="marginValue">0px</span>
+                                </div>
+                                <div class="setting-row">
+                                    <div class="setting-item">
+                                        <label>水平对齐:</label>
+                                        <select id="horizontalAlign">
+                                            <option value="center">居中</option>
+                                            <option value="top">顶部</option>
+                                            <option value="bottom">底部</option>
+                                            <option value="left">左边</option>
+                                            <option value="right">右边</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>缩放模式:</label>
+                                        <select id="scaleMode">
+                                            <option value="contain">等比缩放</option>
+                                            <option value="fill">拉伸占满</option>
+                                            <option value="scale-down">原始尺寸</option>
+                                            <!-- <option value="cover">缩放覆盖</option> -->
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <div class="paper-preview-section">
+                        <div class="paper-previews" id="paperPreviewsContainer">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <div class="fixed-btn-group">
+        <button id="backToTopBtn" class="floating-btn">↑顶部</button>
+        <button id="editStartPrintBtn" class="floating-btn floating-print">打印预览</button>
+        <button id="backToEditBtn" class="floating-btn floating-back">← 编辑</button>
+        <button id="previewStartPrintBtn" class="floating-btn floating-print">打印</button>
+    </div>
+    <div id="status" class="status info" style="display: none;"></div>
+    
 
     <!-- 局部放大镜 -->
     <div id="magnifier" class="magnifier">
@@ -780,21 +890,24 @@
 
                 // 打印预览相关属性
                 this.printPreview = document.getElementById('printPreview');
+                this.editPreview = document.getElementById('editPreview');
                 this.printFilters = {};
                 this.selectedImages = [];
                 this.prePrintState = null;
 
                 // 排版相关属性
                 this.layoutMode = 'single'; // 'single', 'grid', 'vertical', 'horizontal'
+                this.currentPaper = 'A4'; // 默认纸张类型
                 this.spacing = 0; // 图片间距
                 this.margin = 0; // 纸张边距
                 this.gridCols = 2; // 网格布局列数
                 this.gridRows = 2; // 网格布局行数
                 this.horizontalAlign = 'center'; // 'center', 'left', 'right'
-                this.scaleMode = 'contain'; // 'contain', 'cover'
+                this.scaleMode = 'contain'; // 'contain', 'fill'
 
                 this.initEventListeners();
                 this.setupCanvasSize();
+                this.update_fixed_btn()
             }
 
             initEventListeners() {
@@ -807,7 +920,6 @@
                 document.getElementById('redoBtn').addEventListener('click', () => this.redo());
                 document.getElementById('cropBtn').addEventListener('click', () => this.cropImage());
                 document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
-                document.getElementById('printBtn').addEventListener('click', () => this.printImages());
                 
                 // 切割功能事件监听
                 document.getElementById('horizontalLines').addEventListener('input', () => this.updateSplitControls());
@@ -835,17 +947,19 @@
                 document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
 
                 // 打印预览事件监听
-                document.getElementById('printBtn').addEventListener('click', () => this.showPrintPreview());
                 document.getElementById('backToEditBtn').addEventListener('click', () => this.hidePrintPreview());
-                document.getElementById('startPrintBtn').addEventListener('click', () => this.startPrint());
+                document.getElementById('previewStartPrintBtn').addEventListener('click', () => this.startPrint());
+                document.getElementById('editStartPrintBtn').addEventListener('click', () => this.showPrintPreview());
+                document.getElementById('backToTopBtn').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
                 // 纸张选择事件监听
                 document.querySelectorAll('.paper-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const paperType = e.target.dataset.paper;
+                        this.currentPaper = paperType;
                         document.querySelectorAll('.paper-btn').forEach(b => b.classList.remove('active'));
                         e.target.classList.add('active');
-                        this.updatePaperPreview(paperType);
+                        this.updatePaperPreview();
                     });
                 });
 
@@ -900,10 +1014,6 @@
                     this.scaleMode = e.target.value;
                     this.updatePaperPreview();
                 });
-
-                // 打印事件监听
-                window.addEventListener('beforeprint', () => this.prepareForPrint());
-                window.addEventListener('afterprint', () => this.restoreAfterPrint());
 
                 // 旋转控制
                 document.getElementById('rotateSlider').addEventListener('input', (e) => this.handleRotation(e.target.value));
@@ -1081,7 +1191,7 @@
 
             toggleSplitMode() {
                 if (this.currentMode === 'split') {
-                    // 点击结束切割
+                    // 结束切割
                     this.currentMode = null;
                     this.clearSplitLines();
                     document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
@@ -1090,9 +1200,10 @@
                     let previewContainer = document.getElementById('splitPreview');
                     if (previewContainer) {
                         previewContainer.parentNode.removeChild(previewContainer);
+                        this.cleanSplitImageFilter()
                     }
                 } else {
-                    // 点击开始切割
+                    // 开始切割
                     this.currentMode = 'split';
                     this.resetPoints(); // 清除选区点
                     document.getElementById('splitSwitchBtn').textContent = '点击结束切割';
@@ -1189,7 +1300,6 @@
                 });
 
                 this.showStatus('切割预览已生成，点击任意切割图可作为新图片使用', 'success');
-                document.getElementById('printBtn').disabled = false; // 启用打印按钮
                 document.getElementById('downloadBtn').disabled = false;
             }
 
@@ -1240,7 +1350,6 @@
                     }
 
                     document.getElementById('downloadBtn').disabled = false;
-                    document.getElementById('printBtn').disabled = false; // 启用打印按钮
                     this.showStatus('已将切割图作为新图片，可以继续编辑或下载结果。', 'success');
 
                     this.saveToHistory();
@@ -1262,6 +1371,7 @@
                 this.filters[this.currentFilterImage][type] = parseInt(value);
                 document.getElementById(`${type}-value`).textContent = value + (type === 'grayscale' ? '%' : '%');
                 this.drawImage();
+                this.splitImage()
             }
 
             updateFilterControls() {
@@ -1292,7 +1402,8 @@
                 });
 
                 this.drawImage();
-                this.showStatus('滤镜已应用到所有编辑图片', 'success');
+                this.splitImage()
+                this.showStatus('滤镜已应用到所有图片', 'success');
             }
 
             resetFilters() {
@@ -1307,15 +1418,27 @@
                 this.showStatus('滤镜已重置', 'success');
             }
 
+            cleanSplitImageFilter() {
+                this.filters = { main: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
+                const selector = document.getElementById('filterImageSelector');
+                for (let i = selector.options.length - 1; i >= 0; i--) {
+                    const option = selector.options[i];
+                    if (option.value !== 'main') {
+                        selector.remove(i);
+                    }
+                }
+            }
             addSplitImageFilter(imageId) {
                 if (!this.filters[imageId]) {
                     this.filters[imageId] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
                 }
+                if(document.querySelectorAll(`#filterImageSelector option[value="${imageId}"]`).length)
+                    return
 
                 const selector = document.getElementById('filterImageSelector');
                 const option = document.createElement('option');
                 option.value = imageId;
-                option.textContent = `分割图 ${imageId.replace('split_', '')}`;
+                option.textContent = `分图 ${imageId.replace('split_', '')}`;
                 selector.appendChild(option);
             }
 
@@ -1340,7 +1463,6 @@
                     document.getElementById('splitSwitchBtn').disabled = true;
 
                     // 禁用打印和下载按钮
-                    document.getElementById('printBtn').disabled = true;
                     document.getElementById('downloadBtn').disabled = true;
                 }
             }
@@ -1367,7 +1489,6 @@
                         document.getElementById('cropSwitchBtn').disabled = false;
                         document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
                         document.getElementById('splitSwitchBtn').disabled = false;
-                        document.getElementById('printBtn').disabled = false; // 启用打印按钮
                         document.getElementById('downloadBtn').disabled = false;
                         this.showStatus('图片加载成功！可以调整旋转角度或开始创建选区。', 'success');
                     };
@@ -1987,7 +2108,6 @@
                         document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
                         document.getElementById('splitSwitchBtn').disabled = false;
                         document.getElementById('downloadBtn').disabled = false;
-                        document.getElementById('printBtn').disabled = false; // 启用打印按钮
                         this.showStatus('裁剪成功！您可以继续编辑或下载结果。', 'success');
                         this.saveToHistory();
                     };
@@ -2170,9 +2290,10 @@
                     sorted[3]  // 左下
                 ];
             }
+
             downloadResult() {
                 const canvases = document.getElementById('splitPreview')?.querySelectorAll('canvas') || [];
-                const targetCanvases = canvases.length ? Array.from(canvases) : [this.canvas];
+                canvases.unshift(this.canvas)
 
                 if (targetCanvases.length === 0) {
                     this.showStatus('无图片可下载！', 'error');
@@ -2204,8 +2325,6 @@
                     }, 100 * index);
                 });
             }
-
-
 
             showStatus(message, type) {
                 const statusEl = document.getElementById('status');
@@ -2295,32 +2414,26 @@
                 }
 
                 this.printPreview.style.display = 'block';
-                this.updatePrintImages();
+                this.printPreview.classList.add('active')
+                this.editPreview.style.display = 'none';
+                this.editPreview.classList.remove('active')
+                this.updatePrintImages(true);
+                this.update_fixed_btn()
                 this.showStatus('已进入打印预览模式', 'success');
             }
 
             hidePrintPreview() {
                 this.printPreview.style.display = 'none';
+                this.printPreview.classList.remove('active')
+                this.editPreview.style.display = '';
+                this.editPreview.classList.add('active')
+                this.update_fixed_btn()
             }
 
-
-            updateSinglePaperPreview(paperType) {
+            updatePaperPreview() {
                 if (!this.image) return;
-
-                const paperAspectRatios = {
-                    'A4': 210 / 297,
-                    'A3': 297 / 420,
-                    'A5': 148 / 210,
-                    'Letter': 216 / 279,
-                    'Legal': 216 / 356,
-                    'Tabloid': 279 / 432,
-                    'Statement': 140 / 216,
-                    'Executive': 184 / 267,
-                    'B4': 257 / 364,
-                    'B5': 182 / 257
-                };
-
-                const aspectRatio = paperAspectRatios[paperType];
+                
+                // paper-previews
                 const paperPreviewsContainer = document.getElementById('paperPreviewsContainer');
 
                 // 清空纸张预览容器
@@ -2338,11 +2451,40 @@
                     paperPreviewsContainer.appendChild(emptyMessage);
                     return;
                 }
+                const papers = this.createPaperPreview(paperPreviewsContainer.clientWidth);
+                papers.forEach(paper => paperPreviewsContainer.appendChild(paper));
+            }
+
+            createPaperPreview(containerWidth) {
+                const papers = []
+                if (!this.image) return papers;
+
+                const paperAspectRatios = {
+                    'A4': 210 / 297,
+                    'A3': 297 / 420,
+                    'A5': 148 / 210,
+                    'Letter': 216 / 279,
+                    'Legal': 216 / 356,
+                    'Tabloid': 279 / 432,
+                    'Statement': 140 / 216,
+                    'Executive': 184 / 267,
+                    'B4': 257 / 364,
+                    'B5': 182 / 257
+                };
+
+                const aspectRatio = paperAspectRatios[this.currentPaper];
+
+                // 获取当前选择的图片
+                const selectedImages = this.getSelectedImagesForPreview();
+
+                if (selectedImages.length === 0) {
+                    return papers;
+                }
 
                 // 根据布局模式计算纸张数量
                 const totalPages = this.calculateTotalPages(selectedImages.length);
 
-                // 为每张纸创建预览
+                // 为每张纸创建预览, 一个paperPreview一张纸
                 for (let page = 0; page < totalPages; page++) {
                     const paperPreview = document.createElement('div');
                     paperPreview.className = 'paper-preview';
@@ -2350,21 +2492,18 @@
 
                     const paperLabel = document.createElement('div');
                     paperLabel.className = 'paper-label';
-                    paperLabel.textContent = `${paperType} (第${page + 1}页)`;
-
-                    const previewImagesContainer = document.createElement('div');
-                    previewImagesContainer.className = 'preview-images-container';
+                    paperLabel.textContent = `${this.currentPaper} (第${page + 1}页)`;
 
                     // 获取当前页的图片
                     const pageImages = this.getPageImages(selectedImages, page);
 
                     // 应用布局算法
-                    this.applyLayout(pageImages, previewImagesContainer, aspectRatio);
+                    this.applyLayout(pageImages, paperPreview, containerWidth, aspectRatio);
 
                     paperPreview.appendChild(paperLabel);
-                    paperPreview.appendChild(previewImagesContainer);
-                    paperPreviewsContainer.appendChild(paperPreview);
+                    papers.push(paperPreview);
                 }
+                return papers
             }
 
             calculateTotalPages(totalImages) {
@@ -2405,15 +2544,12 @@
                 return selectedImages.slice(startIndex, endIndex);
             }
 
-            applyLayout(pageImages, container, aspectRatio) {
-                // 获取纸张预览容器的实际宽度
-                const paperPreviewsContainer = document.getElementById('paperPreviewsContainer');
-                const containerWidth = paperPreviewsContainer ? Math.min(paperPreviewsContainer.clientWidth, 600) : 400;
+            applyLayout(pageImages, paperPreview, containerWidth, aspectRatio) {
                 const containerHeight = containerWidth / aspectRatio;
                 const usableWidth = containerWidth - this.margin * 2 - 4;
                 const usableHeight = containerHeight - this.margin * 2 - 2;
 
-                container.style.cssText = `
+                paperPreview.style.cssText = `
                     width: 100%;
                     height: 100%;
                     padding: ${this.margin}px;
@@ -2421,20 +2557,21 @@
                     display: flex;
                     flex-direction: column;
                     gap: ${this.spacing}px;
+                    aspect-ratio: ${aspectRatio};
                 `;
 
                 switch (this.layoutMode) {
                     case 'single':
-                        this.applySingleLayout(pageImages, container, usableWidth, usableHeight);
+                        this.applySingleLayout(pageImages, paperPreview, usableWidth, usableHeight);
                         break;
                     case 'grid':
-                        this.applyGridLayout(pageImages, container, usableWidth, usableHeight);
+                        this.applyGridLayout(pageImages, paperPreview, usableWidth, usableHeight);
                         break;
                     case 'vertical':
-                        this.applyVerticalLayout(pageImages, container, usableWidth, usableHeight);
+                        this.applyVerticalLayout(pageImages, paperPreview, usableWidth, usableHeight);
                         break;
                     case 'horizontal':
-                        this.applyHorizontalLayout(pageImages, container, usableWidth, usableHeight);
+                        this.applyHorizontalLayout(pageImages, paperPreview, usableWidth, usableHeight);
                         break;
                 }
             }
@@ -2481,8 +2618,8 @@
                                 height: ${itemHeight}px;
                                 background: rgba(255, 255, 255, 0.05);
                                 border: 1px dashed rgba(79, 195, 247, 0.3);
-                                border-radius: 4px;
                             `;
+                            emptyCell.classList.add('empty-cell')
                             rowContainer.appendChild(emptyCell);
                         }
                     }
@@ -2518,70 +2655,90 @@
 
             createImageElement(imageData, container, maxWidth, maxHeight, autoScale) {
                 const imgContainer = document.createElement('div');
-
-                // 设置水平对齐
-                let justifyContent = 'center';
-                switch (this.horizontalAlign) {
-                    case 'left':
-                        justifyContent = 'flex-start';
-                        break;
-                    case 'right':
-                        justifyContent = 'flex-end';
-                        break;
-                    default:
-                        justifyContent = 'center';
-                }
-
                 imgContainer.style.cssText = `
                     display: flex;
                     align-items: center;
-                    justify-content: ${justifyContent};
                     overflow: hidden;
-                    /*order: 1px solid rgba(79, 195, 247, 0.3);*/
-                    border-radius: 4px;
                     background: rgba(255, 255, 255, 0.05);
                 `;
 
                 const img = document.createElement('img');
                 img.src = imageData.canvas.toDataURL();
                 img.alt = imageData.title;
+                const imgAspectRatio = imageData.canvas.width / imageData.canvas.height;
 
                 if (autoScale) {
                     // 根据缩放模式处理图片
-                    const aspectRatio = imageData.canvas.width / imageData.canvas.height;
+ 
+                    switch (this.scaleMode) {
+                        // 等比缩放
+                        case 'contain':
+                            let width = maxWidth;
+                            let height = maxWidth / imgAspectRatio;
 
-                    if (this.scaleMode === 'cover') {
-                        // 平铺占满：图片完全覆盖容器，可能被裁剪
-                        img.style.width = `${maxWidth}px`;
-                        img.style.height = `${maxHeight}px`;
-                        img.style.objectFit = 'cover';
-                        imgContainer.style.width = `${maxWidth}px`;
-                        imgContainer.style.height = `${maxHeight}px`;
-                    } else {
-                        // 等比缩放占满：保持比例，完整显示图片
-                        let width = maxWidth;
-                        let height = maxWidth / aspectRatio;
+                            if (height > maxHeight) {
+                                height = maxHeight;
+                                width = maxHeight * imgAspectRatio;
+                            }
 
-                        if (height > maxHeight) {
-                            height = maxHeight;
-                            width = maxHeight * aspectRatio;
-                        }
+                            img.style.width = `${width}px`;
+                            img.style.height = `${height}px`;
+                            img.style.aspectRatio = `${imgAspectRatio}`;
+                            img.style.objectFit = 'contain';
+                            imgContainer.style.width = `${maxWidth}px`;
+                            imgContainer.style.height = `${maxHeight}px`;
+                            break;
+                        // 拉伸平铺
+                        case 'fill':
+                            img.style.width = `${maxWidth}px`;
+                            img.style.height = `${maxHeight}px`;
+                            img.style.objectFit = 'fill';
+                            imgContainer.style.width = `${maxWidth}px`;
+                            imgContainer.style.height = `${maxHeight}px`;
+                            break;
+                        // 缩放占满
+                        case 'cover':
+                            break;
+                        // 原始尺寸
+                        case 'scale-down':
+                        default:
+                            img.style.maxWidth = `${maxWidth}px`;
+                            img.style.maxHeight = `${maxHeight}px`;
+                            img.style.width = 'auto';
+                            img.style.height = 'auto';
+                            img.style.objectFit = 'contain';
+                            imgContainer.style.width = `${maxWidth}px`;
+                            imgContainer.style.height = `${maxHeight}px`;
 
-                        img.style.width = `${width}px`;
-                        img.style.height = `${height}px`;
-                        img.style.objectFit = 'contain';
-                        imgContainer.style.width = `${maxWidth}px`;
-                        imgContainer.style.height = `${maxHeight}px`;
                     }
-                } else {
-                    // 保持原始大小，但限制最大尺寸
-                    img.style.maxWidth = `${maxWidth}px`;
-                    img.style.maxHeight = `${maxHeight}px`;
-                    img.style.width = 'auto';
-                    img.style.height = 'auto';
-                    img.style.objectFit = 'contain';
-                    imgContainer.style.width = `${maxWidth}px`;
-                    imgContainer.style.height = `${maxHeight}px`;
+                }
+                // 设置水平对齐
+                if(this.scaleMode !== 'fill') {
+                    let containerAspectRatio = parseFloat(imgContainer.style.width) / parseFloat(imgContainer.style.height);
+                    switch (this.horizontalAlign) {
+                        case 'left':
+                            imgContainer.style.justifyContent = 'flex-start';
+                            imgContainer.style.flexDirection = 'row';
+                            img.style.width = imgAspectRatio < containerAspectRatio ? 'auto' : '100%';
+                            break;
+                        case 'right':
+                            imgContainer.style.justifyContent = 'flex-end';
+                            imgContainer.style.flexDirection = 'row';
+                            img.style.width = imgAspectRatio < containerAspectRatio ? 'auto' : '100%';
+                            break;
+                        case 'top':
+                            imgContainer.style.justifyContent = 'flex-start';
+                            imgContainer.style.flexDirection = 'column';
+                            img.style.height = imgAspectRatio < containerAspectRatio ? '100%' : 'auto';
+                            break;
+                        case 'bottom':
+                            imgContainer.style.justifyContent = 'flex-end';
+                            imgContainer.style.flexDirection = 'column';
+                            img.style.height = imgAspectRatio < containerAspectRatio ? '100%' : 'auto';
+                            break
+                        default:
+                            imgContainer.style.justifyContent = 'center';
+                    }
                 }
 
                 imgContainer.appendChild(img);
@@ -2619,20 +2776,7 @@
                 return selectedImages;
             }
 
-
-            updatePaperPreview(paperType = null) {
-                if (!paperType) {
-                    const activePaper = document.querySelector('.paper-btn.active');
-                    if (activePaper) {
-                        paperType = activePaper.dataset.paper;
-                    } else {
-                        paperType = 'A4';
-                    }
-                }
-                this.updateSinglePaperPreview(paperType);
-            }
-
-            updatePrintImages() {
+            updatePrintImages(init = false) {
                 this.selectedImages = [];
 
                 // 获取用户选择的图片类型
@@ -2658,6 +2802,14 @@
                             canvas: this.createFilteredCanvas(canvas)
                         });
                     });
+                }
+                if (init && this.selectedImages.length == 0 && this.image) {
+                    this.selectedImages.push({
+                        type: 'edited',
+                        title: '编辑后的图片',
+                        canvas: this.createFilteredCanvas(this.image)
+                    });
+                    document.getElementById('printEdited').checked = true;
                 }
 
                 // 更新纸张预览
@@ -2705,59 +2857,68 @@
                 // 显示打印提示
                 const confirmPrint = confirm(`即将开始打印 ${this.selectedImages.length} 张图片。\n\n请在浏览器打印对话框中选择纸张大小和打印方向。\n\n点击"确定"继续打印。`);
 
-                if (confirmPrint) {
-                    window.print();
+                if (!confirmPrint) {
+                  return  
                 }
-            }
-
-            prepareForPrint() {
-                // 保存当前状态
-                this.prePrintState = {
-                    hiddenElements: []
+                
+                const printMain = document.getElementById('print-main') || document.createElement("div")
+                printMain.innerHTML = ''
+                printMain.id = 'print-main'
+                printMain.classList.add('paper-previews')
+                document.body.appendChild(printMain)
+                const paperWidthMM = {
+                    'A4': 210,
+                    'A3': 297,
+                    'A5': 148,
+                    'Letter': 216,
+                    'Legal': 216,
+                    'Tabloid': 279,
+                    'Statement': 140,
+                    'Executive': 184,
+                    'B4': 257,
+                    'B5': 182
                 };
 
-                // 隐藏打印预览中的非打印元素
-                const printPreviewElements = this.printPreview.querySelectorAll('*:not(.print-content)');
-                printPreviewElements.forEach(el => {
-                    if (el.style.display !== 'none' && !el.classList.contains('print-content')) {
-                        this.prePrintState.hiddenElements.push(el);
-                        el.style.display = 'none';
-                    }
-                });
-
-                // 添加打印类
-                document.body.classList.add('printing');
+                let printWidth = (paperWidthMM[this.currentPaper] || 210) * 96 / 25.4; // 96 DPI
+                const ps = this.createPaperPreview(printWidth)
+                ps.forEach(p => printMain.appendChild(p))
+                window.print();
+                printMain.remove()
             }
 
-            restoreAfterPrint() {
-                if (!this.prePrintState) return;
-
-                // 恢复隐藏的元素
-                this.prePrintState.hiddenElements.forEach(el => {
-                    el.style.display = '';
-                });
-
-                // 移除打印类
-                document.body.classList.remove('printing');
-
-                this.prePrintState = null;
+            update_fixed_btn() {
+                const isPrintPreviewActive = !document.querySelector('.print-preview.active');
+                const backToEditBtn = document.getElementById('backToEditBtn');
+                const showPrintPreview = document.getElementById('previewStartPrintBtn');
+                const editStartPrintBtn = document.getElementById('editStartPrintBtn');
+                
+                backToEditBtn.classList.toggle('hidden', isPrintPreviewActive);
+                showPrintPreview.classList.toggle('hidden', isPrintPreviewActive);
+                editStartPrintBtn.classList.toggle('hidden', !isPrintPreviewActive);
             }
+
         }
 
         // 初始化应用
         document.addEventListener('DOMContentLoaded', () => {
             new AdvancedImageCropper();
         });
+
+        
         function checkFooter() {
             const footer = document.getElementById('footer');
             const hasScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
             if (!hasScroll) {footer.classList.add('show');}
             else {footer.classList.toggle('show', window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 10)}
         }
-        new ResizeObserver((entries) => {checkFooter();}).observe(document.body);
-        window.addEventListener('scroll', checkFooter);
-        window.addEventListener('resize', checkFooter);
-        checkFooter();
+
+        function scroll_handler(entries){
+            checkFooter()
+        }
+        new ResizeObserver(scroll_handler).observe(document.body);
+        window.addEventListener('scroll', scroll_handler);
+        window.addEventListener('resize', scroll_handler);
+        window.addEventListener('load', scroll_handler);
     </script>
 </body>
 </html>
