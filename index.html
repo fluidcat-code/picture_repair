@@ -9,6 +9,9 @@
         html::-webkit-scrollbar {width: 0.1px;}
         html::-webkit-scrollbar-thumb {background: transparent;}
         html:hover::-webkit-scrollbar-thumb {background: #ccc;border-radius: 1px;}
+        ::-webkit-scrollbar {width: 2px;}
+        ::-webkit-scrollbar-thumb {background: transparent;}
+        :hover::-webkit-scrollbar-thumb {background: #8beee9;border-radius: 1px;}
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); padding: 10px 20px 30px 20px; min-height: 100vh; color: #e0f7fa; }
         .container { max-width: 1400px; margin: 0 auto; background: rgba(13, 19, 33, 0.8); border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); padding: 30px; backdrop-filter: blur(10px); border: 1px solid rgba(64, 224, 208, 0.2); }
@@ -26,7 +29,7 @@
         .file-label { display: inline-block; padding: 8px 16px; background: linear-gradient(45deg, #00bcd4, #006064); color: white; border-radius: 30px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 188, 212, 0.3); font-weight: 500; text-align: center; flex: 1; }
         .file-label:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 188, 212, 0.5); }
         .canvas-container { background: rgba(18, 27, 45, 0.6); border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: center; border: 1px solid rgba(64, 224, 208, 0.1); }
-        #canvas { border: 1px solid rgba(64, 224, 208, 0.3); cursor: crosshair; max-width: 100%; height: auto; background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); }
+        #main_canvas { border: 1px solid rgba(64, 224, 208, 0.3); cursor: crosshair; max-width: 100%; height: auto; background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); }
         .info { background: rgba(33, 150, 243, 0.15); border: 1px solid rgba(33, 150, 243, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 15px; text-align: center; color: #81d4fa; font-weight: 300; }
         .status { position: fixed; left: 16%; bottom: 20px; text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; letter-spacing: 0.5px; }
         .status.success { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
@@ -75,7 +78,7 @@
         .filter-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
         .filter-label { color: #e0f7fa; font-size: 12px; font-weight: 500; }
         .filter-slider {
-            width: 80px;
+            width: 80%;
             height: 6px;
             border-radius: 3px;
             background: rgba(255, 255, 255, 0.1);
@@ -553,6 +556,14 @@
             max-width: 100% !important;
             width: 100% !important;
         }
+        .current-edit-filter {
+            /* transform: scale(1.05); */
+            /* transform: translateY(-5px) scale(1.05); */
+            box-shadow: 0 0px 16px 10px rgb(255 255 255) !important;
+            border: 1px solid rgba(64, 224, 208, 0.3);
+            z-index: 10;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
 
         /* 打印样式 */
          @media print {
@@ -679,7 +690,7 @@
                         <h3>滤镜调整</h3>
                         <div class="image-selector">
                             <select id="filterImageSelector">
-                                <option value="main">编辑主图</option>
+                                <option value="main_canvas">编辑主图</option>
                             </select>
                         </div>
                         <div class="filter-controls-compact">
@@ -718,7 +729,7 @@
 
             <div class="right-panel">
                 <div class="canvas-container">
-                    <canvas id="canvas"></canvas>
+                    <canvas id="main_canvas"></canvas>
                 </div>
             </div>
         </div>
@@ -853,7 +864,7 @@
     <script>
         class AdvancedImageCropper {
             constructor() {
-                this.canvas = document.getElementById('canvas');
+                this.canvas = document.getElementById('main_canvas');
                 this.ctx = this.canvas.getContext('2d');
                 
                 this.image = null;
@@ -869,7 +880,7 @@
                 this.isHoveringPoint = false;
                 this.hoverPointIndex = -1;
                 this.rotation = 0; // 当前旋转角度
-                this.isRotated = false; // 是否已旋转
+                this.prevRotation = 0;
                 
                 // 切割线相关属性
                 this.horizontalLines = []; // 横向切割线位置（y坐标）
@@ -883,10 +894,10 @@
 
                 // 滤镜相关属性
                 this.filters = {
-                    main: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 }
+                    main_canvas: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 }
                 };
-                this.currentFilterImage = 'main';
-                this.splitImages = [];
+                this.currentFilterImage = 'main_canvas';
+                this.splitImages = {};
 
                 // 打印预览相关属性
                 this.printPreview = document.getElementById('printPreview');
@@ -924,7 +935,7 @@
                 // 切割功能事件监听
                 document.getElementById('horizontalLines').addEventListener('input', () => this.updateSplitControls());
                 document.getElementById('verticalLines').addEventListener('input', () => this.updateSplitControls());
-                document.getElementById('splitImageBtn').addEventListener('click', () => this.splitImage());
+                document.getElementById('splitImageBtn').addEventListener('click', () => this.drawSplitImage('new'));
                 document.getElementById('clearSplitBtn').addEventListener('click', () => this.clearSplitLines());
                 
                 // 切割线数量增减按钮事件监听
@@ -939,10 +950,11 @@
 
                 // 滤镜事件监听
                 document.getElementById('filterImageSelector').addEventListener('change', (e) => this.changeFilterImage(e.target.value));
-                document.getElementById('brightness').addEventListener('input', (e) => this.updateFilter('brightness', e.target.value));
-                document.getElementById('contrast').addEventListener('input', (e) => this.updateFilter('contrast', e.target.value));
-                document.getElementById('saturate').addEventListener('input', (e) => this.updateFilter('saturate', e.target.value));
-                document.getElementById('grayscale').addEventListener('input', (e) => this.updateFilter('grayscale', e.target.value));
+                const debounceUpdateFilter = debounce((type, value) => this.updateFilter(type, value), 50);
+                document.getElementById('brightness').addEventListener('input', (e) => debounceUpdateFilter('brightness', e.target.value));
+                document.getElementById('contrast').addEventListener('input', (e) => debounceUpdateFilter('contrast', e.target.value));
+                document.getElementById('saturate').addEventListener('input', (e) => debounceUpdateFilter('saturate', e.target.value));
+                document.getElementById('grayscale').addEventListener('input', (e) => debounceUpdateFilter('grayscale', e.target.value));
                 document.getElementById('applyToAllBtn').addEventListener('click', () => this.applyFiltersToAll());
                 document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
 
@@ -1213,7 +1225,7 @@
                 this.drawImage();
             }
 
-            splitImage() {
+            drawSplitImage(targetSplitImageId) {
                 if (!this.image || (this.horizontalLines.length === 0 && this.verticalLines.length === 0)) {
                     return;
                 }
@@ -1231,8 +1243,6 @@
                     previewContainer.appendChild(title);
 
                     document.querySelector('.right-panel').appendChild(previewContainer);
-                } else {
-                    previewContainer.innerHTML = '<h3 style="color: #4fc3f7;">切割预览</h3>';
                 }
 
                 // 计算所有切割区域
@@ -1244,7 +1254,7 @@
                 const canvasVisualHeight = canvasRect.height;
 
                 // 创建网格容器
-                const gridContainer = document.createElement('div');
+                const gridContainer = document.getElementById('splitGridContainer') || document.createElement('div');
                 // 用于计算grid总宽、高
                 const gridGap = 3, gridItemBorder = 2
                 gridContainer.style.cssText = `display: grid;gap: ${gridGap}px;margin: 0px auto;`;
@@ -1258,29 +1268,47 @@
                 gridContainer.style.width = `${width}px`
                 gridContainer.style.height = `${height}px`
                 gridContainer.style.transform = `scale(${canvasVisualWidth/width})`
-                previewContainer.appendChild(gridContainer);
+                if (!document.getElementById('splitGridContainer')) {
+                    gridContainer.id = 'splitGridContainer'
+                    previewContainer.appendChild(gridContainer);
+                }
 
                 // 为每个区域创建预览图
                 regions.forEach((region, index) => {
-                    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
-                    canvas.width = region.width;
-                    canvas.height = region.height;
+                    const splitImageId = `split_image_${index + 1}`;
+                    if (targetSplitImageId !== 'new' && targetSplitImageId !== 'all' && splitImageId !== targetSplitImageId) {
+                        return;
+                    }
 
-                    // 应用滤镜到分割图
-                    const splitImageId = `split_${index + 1}`;
-                    const splitFilters = this.filters[splitImageId] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
-                    let filterStr = '';
-                    filterStr += `brightness(${splitFilters.brightness}%) `;
-                    filterStr += `contrast(${splitFilters.contrast}%) `;
-                    filterStr += `saturate(${splitFilters.saturate}%) `;
-                    filterStr += `grayscale(${splitFilters.grayscale}%) `;
-                    ctx.filter = filterStr.trim();
-
-                    ctx.drawImage(this.image,region.x, region.y, region.width, region.height, 0, 0, region.width, region.height);
+                    const canvas = document.getElementById(splitImageId) || document.createElement('canvas');
+                    const region_image = new Image();
+                    region_image.onload = () => {
+                        canvas.width = region.width;
+                        canvas.height = region.height;
+                        const ctx = canvas.getContext('2d');
+                        this.splitImages[splitImageId] = region_image;
+                        // 应用滤镜到分割图
+                        const splitFilters = this.filters[targetSplitImageId==='new'?'main_canvas':splitImageId] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                        this.filters[splitImageId] = {...splitFilters};
+                        let filterStr = '';
+                        filterStr += `brightness(${splitFilters.brightness}%) `;
+                        filterStr += `contrast(${splitFilters.contrast}%) `;
+                        filterStr += `saturate(${splitFilters.saturate}%) `;
+                        filterStr += `grayscale(${splitFilters.grayscale}%) `;
+                        ctx.filter = filterStr.trim();
+                        ctx.drawImage(region_image, 0, 0, region.width, region.height);
+                        ctx.filter = 'none';
+                    };
+                    const tempCanvas = document.createElement('canvas')
+                    tempCanvas.width = region.width;
+                    tempCanvas.height = region.height;
+                    tempCanvas.getContext('2d').drawImage(this.image, region.x, region.y, region.width, region.height, 0, 0, region.width, region.height);
+                    region_image.src = tempCanvas.toDataURL();
 
                     // 创建容器
-                    const itemContainer = document.createElement('div');
-                    itemContainer.style.cssText = `position: relative;cursor: pointer;border: ${gridItemBorder}px solid transparent;transition: border-color 0.3s;overflow: hidden;`;
+                    const itemContainerId = `split_image_container_${index + 1}`;
+                    const itemContainer = document.getElementById(itemContainerId) || document.createElement('div');
+                    itemContainer.style.cssText = `position: relative;cursor: pointer;border: ${gridItemBorder}px solid transparent;transition: border-color 0.3s;`;
 
                     // 计算并设置切图的视觉大小
                     const visualWidth = (region.width / this.image.width) * canvasVisualWidth + 4;
@@ -1288,12 +1316,18 @@
                     itemContainer.style.width = `${visualWidth}px`;
                     itemContainer.style.height = `${visualHeight}px`;
 
-                    itemContainer.addEventListener('mouseenter', () => {itemContainer.style.borderColor = '#4fc3f7';});
-                    itemContainer.addEventListener('mouseleave', () => {itemContainer.style.borderColor = 'transparent';});
-                    itemContainer.addEventListener('click', () => {this.useSplitAsNewImage(canvas);});
                     // 添加画布
-                    itemContainer.appendChild(canvas);
-                    gridContainer.appendChild(itemContainer);
+                    if (!document.getElementById(splitImageId)) {
+                        canvas.id = splitImageId;
+                        itemContainer.appendChild(canvas);
+                    }
+                    if (!document.getElementById(itemContainerId)) {
+                        itemContainer.id = itemContainerId;
+                        itemContainer.addEventListener('mouseenter', () => {itemContainer.style.borderColor = '#4fc3f7';});
+                        itemContainer.addEventListener('mouseleave', () => {itemContainer.style.borderColor = 'transparent';});
+                        itemContainer.addEventListener('click', (e) => {this.useSplitAsNewImage(e, canvas);});
+                        gridContainer.appendChild(itemContainer);
+                    }
 
                     // 为分割图添加滤镜支持
                     this.addSplitImageFilter(splitImageId);
@@ -1325,13 +1359,14 @@
                 return regions;
             }
 
-            useSplitAsNewImage(canvas) {
+            useSplitAsNewImage(e, canvas) {
+                e.preventDefault();
                 // 将切割图作为新图片
+                const region_image = this.splitImages[canvas.id];
                 const newImage = new Image();
                 newImage.onload = () => {
                     this.image = newImage;
                     this.rotation = 0;
-                    this.isRotated = false;
                     this.setupCanvasSize();
                     this.resetPoints(); // 重置选区点，但不清空历史记录
                     this.clearSplitLines(); // 清除切割线
@@ -1354,12 +1389,19 @@
 
                     this.saveToHistory();
                 };
-                newImage.src = canvas.toDataURL();
+                this.filters = { main_canvas: this.filters[canvas.id] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
+                this.currentFilterImage = 'main_canvas';
+                this.cleanSplitImageFilter()
+                newImage.src = region_image.src;
             }
 
             // 滤镜相关方法
             changeFilterImage(imageId) {
+                if(this.currentFilterImage) {
+                    document.getElementById(this.currentFilterImage).classList.remove('current-edit-filter');
+                }
                 this.currentFilterImage = imageId;
+                document.getElementById(imageId).classList.add('current-edit-filter');
                 this.updateFilterControls();
             }
 
@@ -1371,7 +1413,7 @@
                 this.filters[this.currentFilterImage][type] = parseInt(value);
                 document.getElementById(`${type}-value`).textContent = value + (type === 'grayscale' ? '%' : '%');
                 this.drawImage();
-                this.splitImage()
+                this.drawSplitImage(this.currentFilterImage)
             }
 
             updateFilterControls() {
@@ -1392,7 +1434,7 @@
                 const currentFilters = { ...this.filters[this.currentFilterImage] };
 
                 // 应用到主图
-                this.filters.main = { ...currentFilters };
+                this.filters.main_canvas = { ...currentFilters };
 
                 // 应用到所有分割图
                 Object.keys(this.filters).forEach(key => {
@@ -1402,13 +1444,13 @@
                 });
 
                 this.drawImage();
-                this.splitImage()
+                this.drawSplitImage('all')
                 this.showStatus('滤镜已应用到所有图片', 'success');
             }
 
             resetFilters() {
-                if (this.currentFilterImage === 'main') {
-                    this.filters.main = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                if (this.currentFilterImage === 'main_canvas') {
+                    this.filters.main_canvas = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
                 } else {
                     this.filters[this.currentFilterImage] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
                 }
@@ -1419,11 +1461,11 @@
             }
 
             cleanSplitImageFilter() {
-                this.filters = { main: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
+                this.filters = { main_canvas: this.filters.main_canvas || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
                 const selector = document.getElementById('filterImageSelector');
                 for (let i = selector.options.length - 1; i >= 0; i--) {
                     const option = selector.options[i];
-                    if (option.value !== 'main') {
+                    if (option.value !== 'main_canvas') {
                         selector.remove(i);
                     }
                 }
@@ -1438,7 +1480,7 @@
                 const selector = document.getElementById('filterImageSelector');
                 const option = document.createElement('option');
                 option.value = imageId;
-                option.textContent = `分图 ${imageId.replace('split_', '')}`;
+                option.textContent = `分图 ${imageId.replace('split_image_', '')}`;
                 selector.appendChild(option);
             }
 
@@ -1477,7 +1519,6 @@
                     this.originalImage.onload = () => {
                         this.image = this.originalImage;
                         this.rotation = 0;
-                        this.isRotated = false;
                         this.currentMode = null; // 重置模式
                         this.updateRotationDisplay();
                         this.setupCanvasSize();
@@ -1544,7 +1585,6 @@
                 if (!this.image || !this.originalImage) return;
 
                 if (this.rotation === 0) {
-                    this.isRotated = false;
                     this.image.src = this.originalImage.src;
                 } else {
                     // 创建旋转后的图片
@@ -1570,7 +1610,6 @@
                     // 创建新的图片对象
                     this.image = new Image();
                     this.image.onload = () => {
-                        this.isRotated = true;
                         this.setupCanvasSize();
                         this.resetPoints();
                         // 保存旋转后的状态到历史记录
@@ -1847,7 +1886,7 @@
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
                 // 应用滤镜效果
-                const currentFilters = this.filters.main || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                const currentFilters = this.filters.main_canvas || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
                 let filterStr = '';
                 filterStr += `brightness(${currentFilters.brightness}%) `;
                 filterStr += `contrast(${currentFilters.contrast}%) `;
@@ -1990,9 +2029,9 @@
                 
                 // 创建当前画布状态的图片数据
                 const currentState = {
-                    imageData: this.canvas.toDataURL(),
+                    imageData: this.image.src,
                     rotation: this.rotation,
-                    isRotated: this.isRotated
+                    filters: { main_canvas: this.filters.main_canvas }
                 };
                 
                 // 恢复选区点并重绘
@@ -2022,12 +2061,13 @@
                     img.onload = () => {
                         this.image = img;
                         this.rotation = prevState.rotation;
-                        this.isRotated = prevState.isRotated;
+                        this.filters = prevState.filters;
                         this.setupCanvasSize();
                         this.drawImage();
                         this.updateHistoryButtons();
                         this.clearSplitLines();
                         this.resetPoints()
+                        this.updateFilterControls()
                     };
                     img.src = prevState.imageData;
                 }
@@ -2043,12 +2083,13 @@
                     img.onload = () => {
                         this.image = img;
                         this.rotation = nextState.rotation;
-                        this.isRotated = nextState.isRotated;
+                        this.filters = nextState.filters;
                         this.setupCanvasSize();
                         this.drawImage();
                         this.updateHistoryButtons();
                         this.clearSplitLines();
                         this.resetPoints()
+                        this.updateFilterControls()
                     };
                     img.src = nextState.imageData;
                 }
@@ -2097,7 +2138,6 @@
                     croppedImage.onload = () => {
                         this.image = croppedImage;
                         this.rotation = 0; // 重置旋转角度
-                        this.isRotated = false;
                         this.setupCanvasSize();
                         this.resetPoints(false); // 重置选区点，但不清空历史记录
                         this.clearSplitLines(); // 清除切割线
@@ -2757,7 +2797,7 @@
                     selectedImages.push({
                         type: 'edited',
                         title: '编辑后的图片',
-                        canvas: this.createFilteredCanvas(this.image)
+                        canvas: this.createFilteredCanvas(this.canvas)
                     });
                 }
 
@@ -2903,6 +2943,23 @@
         document.addEventListener('DOMContentLoaded', () => {
             new AdvancedImageCropper();
         });
+
+        /**
+         * @param {Function} fn - 要防抖的目标函数
+         * @param {number} delay - 延迟时间（毫秒），推荐 100-300ms
+         * @returns {Function} 防抖后的函数
+         */
+        function debounce(fn, delay = 200) {
+            let timer = null; // 定时器标识
+            return function(...args) {
+                // 每次触发事件，先清除之前的定时器（重置延迟）
+                clearTimeout(timer);
+                // 重新设置定时器，延迟 delay 后执行目标函数
+                timer = setTimeout(() => {
+                fn.apply(this, args); // 保留 this 指向和参数
+                }, delay);
+            };
+        }
 
         
         function checkFooter() {
