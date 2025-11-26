@@ -3048,8 +3048,8 @@
                 ps.forEach(p => printMain.appendChild(p))
                 window.print();
                 this.isPrintMode = false;
-                // printMain.remove()
-                // printStyle.remove(); // 打印完成后移除样式
+                printMain.remove()
+                printStyle.remove();
             }
 
             update_fixed_btn() {
