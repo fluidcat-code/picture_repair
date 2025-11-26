@@ -578,10 +578,14 @@
             }
             
             .paper-preview {
-                /* page-break-before: always; */
-                page-break-after: always;
                 page-break-inside: avoid; 
                 border: none !important;
+            }
+            .paper-preview:not(:first-child) {
+                page-break-before: always;
+            }
+            .paper-preview:not(:last-child) {
+                page-break-after: always;
             }
             .empty-cell {
                 border: none !important;
@@ -2675,8 +2679,8 @@
 
             applyLayout(pageImages, paperPreview, containerWidth, aspectRatio) {
                 const containerHeight = containerWidth / aspectRatio;
-                const usableWidth = containerWidth - this.margin * 2 - 4;
-                const usableHeight = containerHeight - this.margin * 2 - 2;
+                const usableWidth = containerWidth - this.margin * 2 - (this.isPrintMode ? 0 : 4);
+                const usableHeight = containerHeight - this.margin * 2 - (this.isPrintMode ? 0 : 2);
 
                 paperPreview.style.cssText = `
                     width: 100%;
@@ -3012,13 +3016,13 @@
                 if (this.orientationMode === 'landscape') {
                     printStyle.innerHTML = `
                         @page {
-                            size: auto landscape;
+                            size: landscape;
                         }
                     `;
                 } else {
                     printStyle.innerHTML = `
                         @page {
-                            size: auto portrait;
+                            size: portrait;
                         }
                     `;
                 }
@@ -3039,11 +3043,13 @@
 
                 let printWidth = (paperWidthMM[this.currentPaper][widthIndex] || 210) * 96 / 25.4; // 96 DPI
                 printMain.style.width = `${printWidth}px`;
+                this.isPrintMode = true;
                 const ps = this.createPaperPreview(printWidth)
                 ps.forEach(p => printMain.appendChild(p))
                 window.print();
-                printMain.remove()
-                printStyle.remove(); // 打印完成后移除样式
+                this.isPrintMode = false;
+                // printMain.remove()
+                // printStyle.remove(); // 打印完成后移除样式
             }
 
             update_fixed_btn() {
