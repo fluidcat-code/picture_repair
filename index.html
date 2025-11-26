@@ -588,9 +588,19 @@
             }
 
             @page {
-                size: A4;
                 margin: 0;
                 padding: 0;
+            }
+            
+            /* 纵向纸张 */
+            @page :first {
+                size: auto;
+                margin: 0;
+            }
+            
+            /* 横向纸张 */
+            @page landscape {
+                size: auto landscape;
             }
          }
          
@@ -768,6 +778,18 @@
                                 <button class="paper-btn" data-paper="Executive">Executive</button>
                             </div>
                         </div>
+                        <div class="control-group">
+                            <h3>纸张方向</h3>
+                            <div class="setting-row">
+                                <div class="setting-item">
+                                    <label>纸张方向:</label>
+                                    <select id="orientationMode">
+                                        <option value="portrait">纵向</option>
+                                        <option value="landscape">横向</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- 排版控制区域 -->
                         <div class="control-group">
@@ -917,6 +939,7 @@
                 this.gridRows = 2; // 网格布局行数
                 this.horizontalAlign = 'center'; // 'center', 'left', 'right'
                 this.scaleMode = 'contain'; // 'contain', 'fill'
+                this.orientationMode = 'portrait'; // 'portrait', 'landscape'
 
                 this.initEventListeners();
                 this.setupCanvasSize();
@@ -1026,6 +1049,12 @@
 
                 document.getElementById('scaleMode').addEventListener('change', (e) => {
                     this.scaleMode = e.target.value;
+                    this.updatePaperPreview();
+                });
+
+                // 纸张方向事件监听
+                document.getElementById('orientationMode').addEventListener('change', (e) => {
+                    this.orientationMode = e.target.value;
                     this.updatePaperPreview();
                 });
 
@@ -2567,7 +2596,12 @@
                     'B5': 182 / 257
                 };
 
-                const aspectRatio = paperAspectRatios[this.currentPaper];
+                let aspectRatio = paperAspectRatios[this.currentPaper];
+                
+                // 根据纸张方向调整宽高比
+                if (this.orientationMode === 'landscape') {
+                    aspectRatio = 1 / aspectRatio;
+                }
 
                 // 获取当前选择的图片
                 const selectedImages = this.getSelectedImagesForPreview();
@@ -2587,7 +2621,7 @@
 
                     const paperLabel = document.createElement('div');
                     paperLabel.className = 'paper-label';
-                    paperLabel.textContent = `${this.currentPaper} (第${page + 1}页)`;
+                    paperLabel.textContent = `${this.currentPaper} ${this.orientationMode === 'portrait' ? '纵向' : '横向'} (第${page + 1}页)`;
 
                     // 获取当前页的图片
                     const pageImages = this.getPageImages(selectedImages, page);
@@ -2952,7 +2986,7 @@
                 // 显示打印提示
                 const confirmPrint = confirm(`即将开始打印 ${this.selectedImages.length} 张图片。
 
-请在浏览器打印对话框中选择纸张大小【${this.currentPaper}】和打印方向。
+请在浏览器打印对话框中选择纸张大小【${this.currentPaper}】和打印方向【${this.orientationMode === 'portrait' ? '纵向' : '横向'}】。
 
 点击"确定"继续打印。`);
 
@@ -2965,25 +2999,51 @@
                 printMain.id = 'print-main'
                 printMain.classList.add('paper-previews')
                 document.body.appendChild(printMain)
-                const paperWidthMM = {
-                    'A4': 210,
-                    'A3': 297,
-                    'A5': 148,
-                    'Letter': 216,
-                    'Legal': 216,
-                    'Tabloid': 279,
-                    'Statement': 140,
-                    'Executive': 184,
-                    'B4': 257,
-                    'B5': 182
-                };
+                
+                // 添加打印样式
+                let printStyle = document.getElementById('print-style');
+                if (!printStyle) {
+                    printStyle = document.createElement('style');
+                    printStyle.id = 'print-style';
+                    document.head.appendChild(printStyle);
+                }
+                
+                // 根据纸张方向设置打印样式
+                if (this.orientationMode === 'landscape') {
+                    printStyle.innerHTML = `
+                        @page {
+                            size: auto landscape;
+                        }
+                    `;
+                } else {
+                    printStyle.innerHTML = `
+                        @page {
+                            size: auto portrait;
+                        }
+                    `;
+                }
 
-                let printWidth = (paperWidthMM[this.currentPaper] || 210) * 96 / 25.4; // 96 DPI
+                const paperWidthMM = {
+                    'A4': [210, 297],
+                    'A3': [297, 420],
+                    'A5': [148, 210],
+                    'Letter': [216, 279],
+                    'Legal': [216, 356],
+                    'Tabloid': [279, 432],
+                    'Statement': [140, 216],
+                    'Executive': [184, 267],
+                    'B4': [257, 364],
+                    'B5': [182, 257]
+                };
+                const widthIndex = this.orientationMode === 'landscape' ? 1 : 0;
+
+                let printWidth = (paperWidthMM[this.currentPaper][widthIndex] || 210) * 96 / 25.4; // 96 DPI
                 printMain.style.width = `${printWidth}px`;
                 const ps = this.createPaperPreview(printWidth)
                 ps.forEach(p => printMain.appendChild(p))
                 window.print();
                 printMain.remove()
+                printStyle.remove(); // 打印完成后移除样式
             }
 
             update_fixed_btn() {
