@@ -1,0 +1,2207 @@
+import './styles.css';
+class AdvancedImageCropper {
+    constructor() {
+        this.canvas = document.getElementById('main_canvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // 使用 Canvas 作为主要图像处理对象
+        this.currentCanvas = null; // 主要的图像处理画布
+        this.originalCanvas = null; // 保存原始图片数据的画布
+        
+        this.points = [];
+        this.history = []; // 修改为保存完整的状态（包括图片和点）
+        this.historyIndex = -1;
+        this.magnifier = document.getElementById('magnifier');
+        this.magnifierCtx = document.getElementById('magnifierCanvas').getContext('2d');
+        this.pointHover = document.getElementById('pointHover'); // 悬停效果元素
+        this.isDragging = false;
+        this.dragPointIndex = -1;
+        this.isHoveringPoint = false;
+        this.hoverPointIndex = -1;
+        this.rotation = 0; // 当前旋转角度
+        this.prevRotation = 0;
+        
+        // 切割线相关属性
+        this.horizontalLines = []; // 横向切割线位置（y坐标）
+        this.verticalLines = []; // 纵向切割线位置（x坐标）
+        this.isDraggingLine = false;
+        this.dragLineType = null; // 'horizontal' 或 'vertical'
+        this.dragLineIndex = -1;
+        
+        // 模式相关属性
+        this.currentMode = null; // 'crop' 或 'split'
+
+        // 滤镜相关属性
+        this.filters = {
+            main_canvas: { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 }
+        };
+        this.currentFilterImage = 'main_canvas';
+        this.splitImages = {};
+
+        // 打印预览相关属性
+        this.printPreview = document.getElementById('printPreview');
+        this.editPreview = document.getElementById('editPreview');
+        this.printFilters = {};
+        this.selectedImages = [];
+        this.prePrintState = null;
+
+        // 排版相关属性
+        this.layoutMode = 'single'; // 'single', 'grid', 'vertical', 'horizontal'
+        this.currentPaper = 'A4'; // 默认纸张类型
+        this.spacing = 0; // 图片间距
+        this.margin = 0; // 纸张边距
+        this.gridCols = 2; // 网格布局列数
+        this.gridRows = 2; // 网格布局行数
+        this.horizontalAlign = 'center'; // 'center', 'left', 'right'
+        this.scaleMode = 'contain'; // 'contain', 'fill'
+        this.orientationMode = 'portrait'; // 'portrait', 'landscape'
+
+        this.initEventListeners();
+        this.setupCanvasSize();
+        this.update_fixed_btn()
+    }
+
+    initEventListeners() {
+        document.getElementById('fileInput').addEventListener('change', (e) => this.loadImage(e));
+
+        document.getElementById('cleanPointsBtn').addEventListener('click', () => this.resetPoints());
+        document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+        document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+        document.getElementById('cropBtn').addEventListener('click', () => this.cropImage());
+        document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
+        
+        document.getElementById('horizontalLines').addEventListener('input', () => this.updateSplitControls());
+        document.getElementById('verticalLines').addEventListener('input', () => this.updateSplitControls());
+        document.getElementById('splitImageBtn').addEventListener('click', () => this.drawSplitImage('new'));
+        document.getElementById('clearSplitBtn').addEventListener('click', () => this.clearSplitLines());
+        
+        document.getElementById('decreaseH').addEventListener('click', () => this.decreaseHorizontalLines());
+        document.getElementById('increaseH').addEventListener('click', () => this.increaseHorizontalLines());
+        document.getElementById('decreaseV').addEventListener('click', () => this.decreaseVerticalLines());
+        document.getElementById('increaseV').addEventListener('click', () => this.increaseVerticalLines());
+        
+        document.getElementById('cropSwitchBtn').addEventListener('click', () => this.toggleCropMode());
+        document.getElementById('splitSwitchBtn').addEventListener('click', () => this.toggleSplitMode());
+
+        document.getElementById('filterImageSelector').addEventListener('change', (e) => this.changeFilterImage(e.target.value));
+        const wrapUpdateFilter = throttle((type, value) => this.updateFilter(type, value), 200);
+        document.getElementById('brightness').addEventListener('input', (e) => wrapUpdateFilter('brightness', e.target.value));
+        document.getElementById('contrast').addEventListener('input', (e) => wrapUpdateFilter('contrast', e.target.value));
+        document.getElementById('saturate').addEventListener('input', (e) => wrapUpdateFilter('saturate', e.target.value));
+        document.getElementById('grayscale').addEventListener('input', (e) => wrapUpdateFilter('grayscale', e.target.value));
+        document.getElementById('applyToAllBtn').addEventListener('click', () => this.applyFiltersToAll());
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
+
+        document.getElementById('backToEditBtn').addEventListener('click', () => this.hidePrintPreview());
+        document.getElementById('previewStartPrintBtn').addEventListener('click', () => this.startPrint());
+        document.getElementById('editStartPrintBtn').addEventListener('click', () => this.showPrintPreview());
+        document.getElementById('backToTopBtn').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+        document.querySelectorAll('.paper-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const paperType = e.target.dataset.paper;
+                this.currentPaper = paperType;
+                document.querySelectorAll('.paper-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.updatePaperPreview();
+            });
+        });
+
+        document.getElementById('printEdited').addEventListener('change', () => this.updatePrintImages());
+        document.getElementById('printSplit').addEventListener('change', () => this.updatePrintImages());
+
+        document.querySelectorAll('.layout-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const layout = e.target.dataset.layout;
+                document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.layoutMode = layout;
+
+                const gridSettings = document.getElementById('gridSettings');
+                gridSettings.style.display = layout === 'grid' ? 'block' : 'none';
+
+                this.updatePaperPreview();
+            });
+        });
+
+        document.getElementById('spacingSlider').addEventListener('input', (e) => {
+            this.spacing = parseInt(e.target.value);
+            document.getElementById('spacingValue').textContent = this.spacing + 'px';
+            this.updatePaperPreview();
+        });
+
+        document.getElementById('marginSlider').addEventListener('input', (e) => {
+            this.margin = parseInt(e.target.value);
+            document.getElementById('marginValue').textContent = this.margin + 'px';
+            this.updatePaperPreview();
+        });
+
+        document.getElementById('gridCols').addEventListener('input', (e) => {
+            this.gridCols = parseInt(e.target.value) || 1;
+            this.updatePaperPreview();
+        });
+
+        document.getElementById('gridRows').addEventListener('input', (e) => {
+            this.gridRows = parseInt(e.target.value) || 1;
+            this.updatePaperPreview();
+        });
+
+        document.getElementById('horizontalAlign').addEventListener('change', (e) => {
+            this.horizontalAlign = e.target.value;
+            this.updatePaperPreview();
+        });
+
+        document.getElementById('scaleMode').addEventListener('change', (e) => {
+            this.scaleMode = e.target.value;
+            this.updatePaperPreview();
+        });
+
+        document.querySelectorAll('.orientation-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.orientation-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.orientationMode = e.target.dataset.orientation;
+                this.updatePaperPreview();
+            });
+        });
+
+        document.getElementById('rotateSlider').addEventListener('input', (e) => this.handleRotation(e.target.value));
+        document.getElementById('rotateInput').addEventListener('input', (e) => this.handleRotation(e.target.value));
+        document.getElementById('rotateInput').addEventListener('wheel', (e) => this.handleRotateWheel(e));
+        document.getElementById('rotateLeftBtn').addEventListener('click', () => this.rotateByAmount(-90));
+        document.getElementById('rotateRightBtn').addEventListener('click', () => this.rotateByAmount(90));
+        document.getElementById('resetRotateBtn').addEventListener('click', () => this.resetRotation());
+
+        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+
+        window.addEventListener('resize', () => {
+            this.setupCanvasSize();
+            if (this.printPreview.style.display === 'block') {
+                this.updatePaperPreview();
+            }
+        });
+    }
+    
+    // 切割功能相关方法
+    updateSplitControls() {
+        if (!this.currentCanvas) return;
+                
+        const hLines = parseInt(document.getElementById('horizontalLines').value) || 0;
+        const vLines = parseInt(document.getElementById('verticalLines').value) || 0;
+                
+        // 限制最大切割线数量
+        if (hLines > 4) {
+            document.getElementById('horizontalLines').value = 4;
+        }
+        if (vLines > 4) {
+            document.getElementById('verticalLines').value = 4;
+        }
+        
+        this.updateSplitButtons();
+        this.applySplitLines();
+    }
+    
+    applySplitLines() {
+        if (!this.currentCanvas) return;
+                
+        const hLines = parseInt(document.getElementById('horizontalLines').value) || 0;
+        const vLines = parseInt(document.getElementById('verticalLines').value) || 0;
+                
+        // 限制最大切割线数量
+        const horizontalCount = Math.min(hLines, 4);
+        const verticalCount = Math.min(vLines, 4);
+                
+        // 计算切割线位置
+        this.horizontalLines = [];
+        this.verticalLines = [];
+                
+        // 计算横向切割线位置
+        if (horizontalCount > 0) {
+            const spacing = this.currentCanvas.height / (horizontalCount + 1);
+            for (let i = 1; i <= horizontalCount; i++) {
+                this.horizontalLines.push(i * spacing);
+            }
+        }
+                
+        // 计算纵向切割线位置
+        if (verticalCount > 0) {
+            const spacing = this.currentCanvas.width / (verticalCount + 1);
+            for (let i = 1; i <= verticalCount; i++) {
+                this.verticalLines.push(i * spacing);
+            }
+        }
+                
+        this.drawImage();
+        document.getElementById('splitImageBtn').disabled = (horizontalCount === 0 && verticalCount === 0);
+        document.getElementById('clearSplitBtn').disabled = (horizontalCount === 0 && verticalCount === 0);
+    }
+    
+    clearSplitLines() {
+        this.horizontalLines = [];
+        this.verticalLines = [];
+        document.getElementById('horizontalLines').value = 0;
+        document.getElementById('verticalLines').value = 0;
+        document.getElementById('splitImageBtn').disabled = true;
+        document.getElementById('clearSplitBtn').disabled = true;
+        this.updateSplitButtons();
+        this.drawImage();
+    }
+
+    decreaseHorizontalLines() {
+        if(this.currentMode !== 'split') {
+            document.getElementById('horizontalLines').value = 0
+            return
+        }
+        const current = parseInt(document.getElementById('horizontalLines').value) || 0;
+        if (current > 0) {
+            document.getElementById('horizontalLines').value = current - 1;
+            this.updateSplitControls();
+        }
+    }
+
+    increaseHorizontalLines() {
+        if(this.currentMode !== 'split') {
+            document.getElementById('horizontalLines').value = 0
+            return
+        }
+        const current = parseInt(document.getElementById('horizontalLines').value) || 0;
+        if (current < 4) {
+            document.getElementById('horizontalLines').value = current + 1;
+            this.updateSplitControls();
+        }
+    }
+
+    decreaseVerticalLines() {
+        if(this.currentMode !== 'split') {
+            document.getElementById('verticalLines').value = 0
+            return
+        }
+        const current = parseInt(document.getElementById('verticalLines').value) || 0;
+        if (current > 0) {
+            document.getElementById('verticalLines').value = current - 1;
+            this.updateSplitControls();
+        }
+    }
+
+    increaseVerticalLines() {
+        if(this.currentMode !== 'split') {
+            document.getElementById('verticalLines').value = 0
+            return
+        }
+        const current = parseInt(document.getElementById('verticalLines').value) || 0;
+        if (current < 4) {
+            document.getElementById('verticalLines').value = current + 1;
+            this.updateSplitControls();
+        }
+    }
+
+    updateSplitButtons() {
+        const hLines = parseInt(document.getElementById('horizontalLines').value) || 0;
+        const vLines = parseInt(document.getElementById('verticalLines').value) || 0;
+        
+        // 更新横向切割线按钮状态
+        document.getElementById('decreaseH').disabled = hLines <= 0;
+        document.getElementById('increaseH').disabled = hLines >= 4;
+        
+        // 更新纵向切割线按钮状态
+        document.getElementById('decreaseV').disabled = vLines <= 0;
+        document.getElementById('increaseV').disabled = vLines >= 4;
+        
+        // 更新清除按钮状态
+        document.getElementById('clearSplitBtn').disabled = (hLines === 0 && vLines === 0);
+    }
+
+    toggleCropMode() {
+        if (this.currentMode === 'crop') {
+            // 点击结束裁剪
+            this.currentMode = null;
+            this.resetPoints();
+            document.getElementById('cropSwitchBtn').textContent = '点击开始裁剪';
+            document.getElementById('splitSwitchBtn').disabled = false;
+        } else {
+            // 点击开始裁剪
+            this.currentMode = 'crop';
+            this.clearSplitLines(); // 清除切割线
+            document.getElementById('cropSwitchBtn').textContent = '点击结束裁剪';
+            document.getElementById('splitSwitchBtn').disabled = true;
+            this.setDefaultCorpArea()
+        }
+        this.drawImage();
+    }
+
+    toggleSplitMode() {
+        if (this.currentMode === 'split') {
+            // 结束切割
+            this.currentMode = null;
+            this.clearSplitLines();
+            document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
+            document.getElementById('cropSwitchBtn').disabled = false;
+
+            let previewContainer = document.getElementById('splitPreview');
+            if (previewContainer) {
+                previewContainer.parentNode.removeChild(previewContainer);
+                this.cleanSplitImageFilter()
+            }
+        } else {
+            // 开始切割
+            this.currentMode = 'split';
+            this.resetPoints(); // 清除选区点
+            document.getElementById('splitSwitchBtn').textContent = '点击结束切割';
+            document.getElementById('cropSwitchBtn').disabled = true;
+            this.setDefaultSplit()
+        }
+        this.drawImage();
+    }
+
+    drawSplitImage(targetSplitImageId) {
+        if (!this.currentCanvas || (this.horizontalLines.length === 0 && this.verticalLines.length === 0)) {
+            return;
+        }
+
+        // 创建预览容器
+        let previewContainer = document.getElementById('splitPreview');
+        if (!previewContainer) {
+            previewContainer = document.createElement('div');
+            previewContainer.id = 'splitPreview';
+            previewContainer.style.cssText = `margin-top: 20px;padding: 15px;background: rgba(18, 27, 45, 0.6);border-radius: 10px;border: 1px solid rgba(64, 224, 208, 0.1);`;
+
+            const title = document.createElement('h3');
+            title.textContent = '切割预览';
+            title.style.cssText = `color: #4fc3f7;`;
+            previewContainer.appendChild(title);
+
+            document.querySelector('.right-panel').appendChild(previewContainer);
+        }
+
+        // 计算所有切割区域
+        const regions = this.calculateSplitRegions();
+
+        // 获取原画布的视觉大小
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const canvasVisualWidth = canvasRect.width;
+        const canvasVisualHeight = canvasRect.height;
+
+        // 创建网格容器
+        const gridContainer = document.getElementById('splitGridContainer') || document.createElement('div');
+        // 用于计算grid总宽、高
+        const gridGap = 3, gridItemBorder = 2
+        gridContainer.style.cssText = `display: grid;gap: ${gridGap}px;margin: 0px auto;`;
+
+        // 根据切割线数量设置网格列数和行数
+        const rows = this.horizontalLines.length + 1, cols = this.verticalLines.length + 1,
+            width = canvasVisualWidth + this.verticalLines.length * gridGap + cols * gridItemBorder * 2,
+            height = canvasVisualHeight + this.horizontalLines.length * gridGap + rows * gridItemBorder * 2;
+        gridContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        gridContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        gridContainer.style.width = `${width}px`
+        gridContainer.style.height = `${height}px`
+        gridContainer.style.transform = `scale(${canvasVisualWidth/width})`
+        if (!document.getElementById('splitGridContainer')) {
+            gridContainer.id = 'splitGridContainer'
+            previewContainer.appendChild(gridContainer);
+        }
+
+        // 为每个区域创建预览图
+        regions.forEach((region, index) => {
+            const splitImageId = `split_image_${index + 1}`;
+            if (targetSplitImageId !== 'new' && targetSplitImageId !== 'all' && splitImageId !== targetSplitImageId) {
+                return;
+            }
+
+            const canvas = document.getElementById(splitImageId) || document.createElement('canvas');
+            const region_image = new Image();
+            region_image.onload = () => {
+                canvas.width = region.width;
+                canvas.height = region.height;
+                const ctx = canvas.getContext('2d');
+                this.splitImages[splitImageId] = region_image;
+                // 应用滤镜到分割图
+                const splitFilters = this.filters[targetSplitImageId==='new'?'main_canvas':splitImageId] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+                this.filters[splitImageId] = {...splitFilters};
+                let filterStr = '';
+                filterStr += `brightness(${splitFilters.brightness}%) `;
+                filterStr += `contrast(${splitFilters.contrast}%) `;
+                filterStr += `saturate(${splitFilters.saturate}%) `;
+                filterStr += `grayscale(${splitFilters.grayscale}%) `;
+                ctx.filter = filterStr.trim();
+                ctx.drawImage(region_image, 0, 0, region.width, region.height);
+                ctx.filter = 'none';
+            };
+            const tempCanvas = document.createElement('canvas')
+            tempCanvas.width = region.width;
+            tempCanvas.height = region.height;
+            tempCanvas.getContext('2d').drawImage(this.currentCanvas, region.x, region.y, region.width, region.height, 0, 0, region.width, region.height);
+            region_image.src = tempCanvas.toDataURL();
+
+            // 创建容器
+            const itemContainerId = `split_image_container_${index + 1}`;
+            const itemContainer = document.getElementById(itemContainerId) || document.createElement('div');
+            itemContainer.style.cssText = `position: relative;cursor: pointer;border: ${gridItemBorder}px solid transparent;transition: border-color 0.3s;`;
+
+            // 计算并设置切图的视觉大小
+            const visualWidth = (region.width / this.currentCanvas.width) * canvasVisualWidth + 4;
+            const visualHeight = (region.height / this.currentCanvas.height) * canvasVisualHeight + 4;
+            itemContainer.style.width = `${visualWidth}px`;
+            itemContainer.style.height = `${visualHeight}px`;
+
+            // 添加画布
+            if (!document.getElementById(splitImageId)) {
+                canvas.id = splitImageId;
+                itemContainer.appendChild(canvas);
+            }
+            if (!document.getElementById(itemContainerId)) {
+                itemContainer.id = itemContainerId;
+                itemContainer.addEventListener('mouseenter', () => {itemContainer.style.borderColor = '#4fc3f7';});
+                itemContainer.addEventListener('mouseleave', () => {itemContainer.style.borderColor = 'transparent';});
+                itemContainer.addEventListener('click', (e) => {this.useSplitAsNewImage(e, canvas);});
+                gridContainer.appendChild(itemContainer);
+            }
+
+            // 为分割图添加滤镜支持
+            this.addSplitImageFilter(splitImageId);
+        });
+
+        this.showStatus('切割预览已生成，点击任意切割图可作为新图片使用', 'success');
+        document.getElementById('downloadBtn').disabled = false;
+    }
+
+    calculateSplitRegions() {
+        // 获取所有切割线位置，包括边界
+        const xPositions = [0, ...this.verticalLines.sort((a, b) => a - b), this.currentCanvas.width];
+        const yPositions = [0, ...this.horizontalLines.sort((a, b) => a - b), this.currentCanvas.height];
+        
+        const regions = [];
+        
+        // 计算所有矩形区域
+        for (let y = 0; y < yPositions.length - 1; y++) {
+            for (let x = 0; x < xPositions.length - 1; x++) {
+                regions.push({
+                    x: xPositions[x],
+                    y: yPositions[y],
+                    width: xPositions[x + 1] - xPositions[x],
+                    height: yPositions[y + 1] - yPositions[y]
+                });
+            }
+        }
+        
+        return regions;
+    }
+
+    useSplitAsNewImage(e, canvas) {
+        e.preventDefault();
+        // 将切割图作为新图片
+        const region_image = this.splitImages[canvas.id];
+        
+        // 创建新的画布
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = region_image.width;
+        newCanvas.height = region_image.height;
+        const newCtx = newCanvas.getContext('2d');
+        newCtx.drawImage(region_image, 0, 0);
+        
+        this.currentCanvas = newCanvas;
+        this.rotation = 0;
+        this.setupCanvasSize();
+        this.resetPoints(); // 重置选区点，但不清空历史记录
+        this.clearSplitLines(); // 清除切割线
+        this.currentMode = null; // 重置模式
+
+        // 重置按钮状态
+        document.getElementById('cropSwitchBtn').textContent = '点击开始裁剪';
+        document.getElementById('cropSwitchBtn').disabled = false;
+        document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
+        document.getElementById('splitSwitchBtn').disabled = false;
+
+        // 移除预览容器
+        const previewContainer = document.getElementById('splitPreview');
+        if (previewContainer) {
+            previewContainer.remove();
+        }
+
+        document.getElementById('downloadBtn').disabled = false;
+        this.showStatus('已将切割图作为新图片，可以继续编辑或下载结果。', 'success');
+
+        this.saveToHistory();
+        
+        this.filters = { main_canvas: this.filters[canvas.id] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
+        this.currentFilterImage = 'main_canvas';
+        this.cleanSplitImageFilter()
+    }
+
+    // 滤镜相关方法
+    changeFilterImage(imageId) {
+        if(this.currentFilterImage) {
+            document.getElementById(this.currentFilterImage).classList.remove('current-edit-filter');
+        }
+        this.currentFilterImage = imageId;
+        document.getElementById(imageId).classList.add('current-edit-filter');
+        this.updateFilterControls();
+    }
+
+    updateFilter(type, value) {
+        if (!this.filters[this.currentFilterImage]) {
+            this.filters[this.currentFilterImage] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        }
+
+        this.filters[this.currentFilterImage][type] = parseInt(value);
+        document.getElementById(`${type}-value`).textContent = value + (type === 'grayscale' ? '%' : '%');
+        this.drawImage();
+        this.drawSplitImage(this.currentFilterImage)
+    }
+
+    updateFilterControls() {
+        const currentFilters = this.filters[this.currentFilterImage] || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+
+        document.getElementById('brightness').value = currentFilters.brightness;
+        document.getElementById('contrast').value = currentFilters.contrast;
+        document.getElementById('saturate').value = currentFilters.saturate;
+        document.getElementById('grayscale').value = currentFilters.grayscale;
+
+        document.getElementById('brightness-value').textContent = currentFilters.brightness + '%';
+        document.getElementById('contrast-value').textContent = currentFilters.contrast + '%';
+        document.getElementById('saturate-value').textContent = currentFilters.saturate + '%';
+        document.getElementById('grayscale-value').textContent = currentFilters.grayscale + '%';
+    }
+
+    applyFiltersToAll() {
+        const currentFilters = { ...this.filters[this.currentFilterImage] };
+
+        // 应用到主图
+        this.filters.main_canvas = { ...currentFilters };
+
+        // 应用到所有分割图
+        Object.keys(this.filters).forEach(key => {
+            if (key.startsWith('split_')) {
+                this.filters[key] = { ...currentFilters };
+            }
+        });
+
+        this.drawImage();
+        this.drawSplitImage('all')
+        this.showStatus('滤镜已应用到所有图片', 'success');
+    }
+
+    resetFilters() {
+        if (this.currentFilterImage === 'main_canvas') {
+            this.filters.main_canvas = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        } else {
+            this.filters[this.currentFilterImage] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        }
+
+        this.updateFilterControls();
+        this.drawImage();
+        this.showStatus('滤镜已重置', 'success');
+    }
+
+    cleanSplitImageFilter() {
+        this.filters = { main_canvas: this.filters.main_canvas || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 } };
+        const selector = document.getElementById('filterImageSelector');
+        for (let i = selector.options.length - 1; i >= 0; i--) {
+            const option = selector.options[i];
+            if (option.value !== 'main_canvas') {
+                selector.remove(i);
+            }
+        }
+    }
+    addSplitImageFilter(imageId) {
+        if (!this.filters[imageId]) {
+            this.filters[imageId] = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        }
+        if(document.querySelectorAll(`#filterImageSelector option[value="${imageId}"]`).length)
+            return
+
+        const selector = document.getElementById('filterImageSelector');
+        const option = document.createElement('option');
+        option.value = imageId;
+        option.textContent = `分图 ${imageId.replace('split_image_', '')}`;
+        selector.appendChild(option);
+    }
+
+    setupCanvasSize() {
+        if (this.currentCanvas) {
+            const maxWidth = Math.min(window.innerWidth - 400, this.currentCanvas.width);
+            const maxHeight = Math.min(window.innerHeight - 300, this.currentCanvas.height);
+            const scale = Math.min(maxWidth / this.currentCanvas.width, maxHeight / this.currentCanvas.height);
+
+            this.canvas.width = this.currentCanvas.width * scale;
+            this.canvas.height = this.currentCanvas.height * scale;
+            this.drawImage();
+        } else {
+            // 禁用切割功能按钮
+            document.getElementById('horizontalLines').disabled = true;
+            document.getElementById('verticalLines').disabled = true;
+            document.getElementById('splitImageBtn').disabled = true;
+            
+            // 禁用模式切换按钮
+            document.getElementById('cropSwitchBtn').disabled = true;
+            document.getElementById('cropSwitchBtn').disabled = true;
+            document.getElementById('splitSwitchBtn').disabled = true;
+
+            // 禁用打印和下载按钮
+            document.getElementById('downloadBtn').disabled = true;
+        }
+    }
+
+    loadImage(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            // 创建图像对象用于加载
+            const img = new Image();
+            img.onload = () => {
+                // 创建原始画布并绘制图像
+                this.originalCanvas = document.createElement('canvas');
+                this.originalCanvas.width = img.width;
+                this.originalCanvas.height = img.height;
+                const originalCtx = this.originalCanvas.getContext('2d');
+                originalCtx.drawImage(img, 0, 0);
+                
+                // 设置当前画布为原始画布的副本
+                this.currentCanvas = this.cloneCanvas(this.originalCanvas);
+                
+                this.rotation = 0;
+                this.currentMode = null; // 重置模式
+                this.updateRotationDisplay();
+                this.setupCanvasSize();
+                this.resetPoints();
+                this.clearSplitLines(); // 清除切割线
+                this.saveToHistory()
+                // 重置按钮状态
+                document.getElementById('cropSwitchBtn').textContent = '点击开始裁剪';
+                document.getElementById('cropSwitchBtn').disabled = false;
+                document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
+                document.getElementById('splitSwitchBtn').disabled = false;
+                document.getElementById('downloadBtn').disabled = false;
+                this.showStatus('图片加载成功！可以调整旋转角度或开始创建选区。', 'success');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 克隆画布的辅助方法
+    cloneCanvas(oldCanvas) {
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = oldCanvas.width;
+        newCanvas.height = oldCanvas.height;
+        const ctx = newCanvas.getContext('2d');
+        ctx.drawImage(oldCanvas, 0, 0);
+        return newCanvas;
+    }
+
+    handleRotation(value) {
+        if (!this.currentCanvas) return;
+
+        this.rotation = parseInt(value);
+        this.updateRotationDisplay();
+        this.applyRotation();
+    }
+
+    handleRotateWheel(e) {
+        if (!this.currentCanvas) return;
+        
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -1 : 1;
+        const currentValue = parseInt(document.getElementById('rotateInput').value) || 0;
+        const newValue = Math.max(-180, Math.min(180, currentValue + delta));
+        
+        this.handleRotation(newValue.toString());
+    }
+
+    rotateByAmount(amount) {
+        if (!this.currentCanvas) return;
+
+        this.rotation += amount;
+        if (this.rotation > 180) this.rotation -= 360;
+        if (this.rotation < -180) this.rotation += 360;
+
+        this.updateRotationDisplay();
+        this.applyRotation();
+    }
+
+    resetRotation() {
+        if (!this.currentCanvas) return;
+
+        this.rotation = 0;
+        this.updateRotationDisplay();
+        this.applyRotation();
+    }
+
+    updateRotationDisplay() {
+        document.getElementById('rotateSlider').value = this.rotation;
+        document.getElementById('rotateInput').value = this.rotation;
+    }
+
+    applyRotation() {
+        if (!this.currentCanvas || !this.originalCanvas) return;
+
+        if (this.rotation === 0) {
+            // 直接使用原始画布的副本
+            this.currentCanvas = this.cloneCanvas(this.originalCanvas);
+        } else {
+            // 在画布上直接进行旋转操作
+            const angle = (this.rotation * Math.PI) / 180;
+            const cos = Math.abs(Math.cos(angle));
+            const sin = Math.abs(Math.sin(angle));
+
+            // 计算旋转后的画布尺寸
+            const rotatedWidth = this.originalCanvas.width * cos + this.originalCanvas.height * sin;
+            const rotatedHeight = this.originalCanvas.width * sin + this.originalCanvas.height * cos;
+
+            // 创建旋转后的画布
+            const rotatedCanvas = document.createElement('canvas');
+            rotatedCanvas.width = rotatedWidth;
+            rotatedCanvas.height = rotatedHeight;
+            const rotatedCtx = rotatedCanvas.getContext('2d');
+
+            // 将原点移动到画布中心并旋转
+            rotatedCtx.translate(rotatedWidth / 2, rotatedHeight / 2);
+            rotatedCtx.rotate(angle);
+            rotatedCtx.drawImage(this.originalCanvas, -this.originalCanvas.width / 2, -this.originalCanvas.height / 2);
+
+            // 更新当前画布
+            this.currentCanvas = rotatedCanvas;
+        }
+        
+        this.setupCanvasSize();
+        this.resetPoints();
+        // 保存旋转后的状态到历史记录
+        this.saveToHistory();
+    }
+
+    handleCanvasClick(e) {
+        if (this.isDragging || !this.currentCanvas) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // 根据当前模式执行不同操作
+        if (this.currentMode === 'crop') {
+            // 裁剪模式：创建四边形选区
+            if (this.points.length < 4) {
+                // 修复坐标转换问题
+                const imageX = x * (this.currentCanvas.width / rect.width);
+                const imageY = y * (this.currentCanvas.height / rect.height);
+
+                const originalPoint = {x: imageX,y: imageY};
+
+                this.points.push(originalPoint);
+                this.drawImage();
+                this.updatePointCount();
+
+                if (this.points.length === 4) {
+                    this.showStatus('四边形选区创建完成！可以拖动调整或点击"裁剪图片"。', 'success');
+                }
+            }
+        }
+    }
+
+    handleMouseDown(e) {
+        if (!this.currentCanvas) return;
+
+        // 根据当前模式执行不同操作
+        if (this.currentMode === 'split') {
+            this.handleSplitModeMouseDown(e);
+        } else if (this.currentMode === 'crop') {
+            this.handleCorpModeMouseDown(e)
+        }
+    }
+
+    handleMouseMove(e) {
+        if (!this.currentCanvas) return;
+
+        // 根据当前模式执行不同操作
+        if (this.currentMode === 'crop') {
+            this.handleCropModeMouseMove(e)
+        } else if (this.currentMode === 'split') {
+            this.handleSplitModeMouseMove(e);
+        } else {
+            // 默认模式：恢复默认光标
+            this.canvas.style.cursor = 'crosshair';
+            this.pointHover.style.display = 'none';
+            this.drawImage();
+        }
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        if (!this.currentCanvas) return;
+
+        const touch = e.touches[0];
+        this.handleMouseDown({
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault(); // 防止触摸时页面滚动
+        if (!this.currentCanvas) return;
+        const touch = e.touches[0];
+        // 模拟鼠标移动事件
+        this.handleMouseMove({
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+        });
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        if (!this.currentCanvas) return;
+        this.handleMouseUp(e);
+    }
+
+    handleMouseUp(e) {
+        if (this.isDraggingLine) {
+            this.isDraggingLine = false;
+            this.dragLineType = null;
+            this.dragLineIndex = -1;
+            this.canvas.style.cursor = 'crosshair';
+        } else if (this.isDragging) {
+            this.isDragging = false;
+            this.dragPointIndex = -1;
+            this.canvas.style.cursor = 'crosshair';
+            this.hideMagnifier();
+        }
+    }
+
+    handleCorpModeMouseDown(e) {
+        if (this.points.length !== 4) {
+            return;
+        }
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        for (let i = 0; i < this.points.length; i++) {
+            const point = this.points[i];
+            // 修复坐标转换问题
+            const canvasX = point.x * (rect.width / this.currentCanvas.width);
+            const canvasY = point.y * (rect.height / this.currentCanvas.height);
+
+            if (Math.abs(x - canvasX) < 10 && Math.abs(y - canvasY) < 10) {
+                this.isDragging = true;
+                this.dragPointIndex = i;
+                this.canvas.style.cursor = 'move';
+                return;
+            }
+        }
+    }
+
+    handleSplitModeMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const scaleX = rect.width / this.currentCanvas.width;
+        const scaleY = rect.height / this.currentCanvas.height;
+        // 切割模式：拖拽切割线
+        if (this.horizontalLines.length > 0 || this.verticalLines.length > 0) {
+            // 检查横向切割线
+            for (let i = 0; i < this.horizontalLines.length; i++) {
+                const lineY = this.horizontalLines[i] * scaleY;
+                if (Math.abs(y - lineY) < 5) {
+                    this.isDraggingLine = true;
+                    this.dragLineType = 'horizontal';
+                    this.dragLineIndex = i;
+                    this.canvas.style.cursor = 'ns-resize';
+                    return;
+                }
+            }
+
+            // 检查纵向切割线
+            for (let i = 0; i < this.verticalLines.length; i++) {
+                const lineX = this.verticalLines[i] * scaleX;
+                if (Math.abs(x - lineX) < 5) {
+                    this.isDraggingLine = true;
+                    this.dragLineType = 'vertical';
+                    this.dragLineIndex = i;
+                    this.canvas.style.cursor = 'ew-resize';
+                    return;
+                }
+            }
+        }
+    }
+
+    handleCropModeMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = Math.max(Math.min(e.clientX - rect.left, rect.width), 0);
+        const y = Math.max(Math.min(e.clientY - rect.top, rect.height), 0);
+        // 裁剪模式：处理控制点悬停和拖拽
+        this.isHoveringPoint = false;
+        this.hoverPointIndex = -1;
+        if (this.points.length === 4) {
+            for (let i = 0; i < this.points.length; i++) {
+                const point = this.points[i];
+                // 修复坐标转换问题
+                const canvasX = point.x * (rect.width / this.currentCanvas.width);
+                const canvasY = point.y * (rect.height / this.currentCanvas.height);
+
+                if (Math.abs(x - canvasX) < 15 && Math.abs(y - canvasY) < 15) {
+                    this.isHoveringPoint = true;
+                    this.hoverPointIndex = i;
+                    this.canvas.style.cursor = 'move';
+
+                    // 显示悬停效果
+                    this.pointHover.style.display = 'block';
+                    this.pointHover.style.left = (rect.left + canvasX) + 'px';
+                    this.pointHover.style.top = (rect.top + 1 + canvasY) + 'px';
+                    break;
+                }
+            }
+            if (!this.isHoveringPoint) {
+                this.pointHover.style.display = 'none';
+                if (!this.isDragging) {
+                    this.canvas.style.cursor = 'crosshair';
+                }
+            }
+        }
+
+        if (this.isDragging && this.dragPointIndex !== -1) {
+            // 修复坐标转换问题
+            const imageX = x * (this.currentCanvas.width / rect.width);
+            const imageY = y * (this.currentCanvas.height / rect.height);
+
+            this.points[this.dragPointIndex] = {
+                x: imageX,
+                y: imageY
+            };
+
+            this.drawImage();
+            this.showMagnifier(e.clientX, e.clientY);
+        } else {
+            // 重绘以显示悬停效果
+            this.drawImage();
+        }
+    }
+
+    handleSplitModeMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = Math.max(Math.min(e.clientX - rect.left, rect.width), 0);
+        const y = Math.max(Math.min(e.clientY - rect.top, rect.height), 0);
+        // 切割模式：处理切割线悬停和拖拽
+        if (!this.isDragging && !this.isDraggingLine) {
+            let isHoveringLine = false;
+            const scaleX = rect.width / this.currentCanvas.width;
+            const scaleY = rect.height / this.currentCanvas.height;
+
+            // 检查横向切割线
+            for (let i = 0; i < this.horizontalLines.length; i++) {
+                const lineY = this.horizontalLines[i] * scaleY;
+                if (Math.abs(y - lineY) < 5) {
+                    this.canvas.style.cursor = 'ns-resize';
+                    isHoveringLine = true;
+                    break;
+                }
+            }
+
+            // 检查纵向切割线
+            if (!isHoveringLine) {
+                for (let i = 0; i < this.verticalLines.length; i++) {
+                    const lineX = this.verticalLines[i] * scaleX;
+                    if (Math.abs(x - lineX) < 5) {
+                        this.canvas.style.cursor = 'ew-resize';
+                        isHoveringLine = true;
+                        break;
+                    }
+                }
+            }
+
+            // 如果没有悬停在任何元素上，恢复默认光标
+            if (!isHoveringLine) {
+                this.canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        if (this.isDraggingLine && this.dragLineIndex !== -1) {
+            // 拖拽切割线
+            const imageX = x * (this.currentCanvas.width / rect.width);
+            const imageY = y * (this.currentCanvas.height / rect.height);
+
+            if (this.dragLineType === 'horizontal') {
+                // 限制横向切割线在图片范围内
+                this.horizontalLines[this.dragLineIndex] = Math.max(0, Math.min(this.currentCanvas.height, imageY));
+            } else if (this.dragLineType === 'vertical') {
+                // 限制纵向切割线在图片范围内
+                this.verticalLines[this.dragLineIndex] = Math.max(0, Math.min(this.currentCanvas.width, imageX));
+            }
+
+            this.drawImage();
+        } else {
+            // 重绘以显示悬停效果
+            this.drawImage();
+        }
+    }
+
+    drawImage() {
+        if (!this.currentCanvas) return;
+
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // 应用滤镜效果
+        const currentFilters = this.filters.main_canvas || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        let filterStr = '';
+        filterStr += `brightness(${currentFilters.brightness}%) `;
+        filterStr += `contrast(${currentFilters.contrast}%) `;
+        filterStr += `saturate(${currentFilters.saturate}%) `;
+        filterStr += `grayscale(${currentFilters.grayscale}%) `;
+        this.ctx.filter = filterStr.trim();
+
+        // 绘制图片
+        this.ctx.drawImage(this.currentCanvas, 0, 0, this.canvas.width, this.canvas.height);
+
+        // 重置滤镜
+        this.ctx.filter = 'none';
+
+        // 绘制四边形选区
+        if (this.points.length > 0) {
+            this.ctx.strokeStyle = '#0333ff';
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([2, 2]);
+
+            this.ctx.beginPath();
+            const scaleX = this.canvas.width / this.currentCanvas.width;
+            const scaleY = this.canvas.height / this.currentCanvas.height;
+
+            this.ctx.moveTo(this.points[0].x * scaleX, this.points[0].y * scaleY);
+            for (let i = 1; i < this.points.length; i++) {
+                this.ctx.lineTo(this.points[i].x * scaleX, this.points[i].y * scaleY);
+            }
+            if (this.points.length === 4) {
+                this.ctx.closePath();
+            }
+            this.ctx.stroke();
+
+            // 绘制控制点
+            for (let i = 0; i < this.points.length; i++) {
+                const point = this.points[i];
+                const canvasX = point.x * scaleX;
+                const canvasY = point.y * scaleY;
+
+                // 如果是悬停的点，绘制高亮光圈
+                if (this.isHoveringPoint && this.hoverPointIndex === i) {
+                    // 绘制更大的高亮背景
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(canvasX-1, canvasY, 15, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    // 绘制闪烁效果
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(canvasX, canvasY, 12, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                }
+
+                // 绘制控制点内圈（中心点）
+                // this.ctx.fillStyle = 'rgba(255, 82, 82, 0.8)';
+                this.ctx.fillStyle = '#0333ff';
+                this.ctx.beginPath();
+                this.ctx.arc(canvasX, canvasY, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+
+            this.ctx.setLineDash([]);
+        }
+
+        // 绘制切割线
+        if (this.horizontalLines.length > 0 || this.verticalLines.length > 0) {
+
+            const scaleX = this.canvas.width / this.currentCanvas.width;
+            const scaleY = this.canvas.height / this.currentCanvas.height;
+
+            this.ctx.strokeStyle = 'rgba(3,51,256,0.7)';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([6, 2]);
+            this.ctx.beginPath();
+            // 绘制横向切割线
+            for (let i = 0; i < this.horizontalLines.length; i++) {
+                const y = this.horizontalLines[i] * scaleY;
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.canvas.width, y);
+            }
+            
+            // 绘制纵向切割线
+            for (let i = 0; i < this.verticalLines.length; i++) {
+                const x = this.verticalLines[i] * scaleX;
+                this.ctx.moveTo(x, 0);
+                this.ctx.lineTo(x, this.canvas.height);
+            }
+            this.ctx.stroke();
+            
+            this.ctx.setLineDash([]);
+        }
+    }
+
+    setDefaultCorpArea() {
+        if (this.currentMode === 'crop') {
+            const margin = this.currentCanvas.width * 0.1
+            this.points.push({x: margin, y: margin})
+            this.points.push({x: this.currentCanvas.width - margin, y: margin})
+            this.points.push({x: this.currentCanvas.width - margin, y: this.currentCanvas.height - margin})
+            this.points.push({x: margin, y: this.currentCanvas.height - margin})
+            this.updatePointCount()
+        }
+    }
+
+    setDefaultSplit() {
+        if (this.currentMode === 'split') {
+            document.getElementById('verticalLines').value = 1
+            this.updateSplitButtons()
+            this.applySplitLines()
+        }
+
+    }
+
+    resetPoints() {
+        this.points = [];
+        this.drawImage();
+        this.updatePointCount();
+        document.getElementById('cropBtn').disabled = true;
+        document.getElementById('cleanPointsBtn').disabled = true;
+        this.hideStatus();
+        // 隐藏悬停效果
+        this.pointHover.style.display = 'none';
+    }
+    
+    clearHistory() {
+        this.history = [];
+        this.historyIndex = -1;
+        this.updateHistoryButtons();
+    }
+
+    saveToHistory = throttle(() => this._saveToHistory(), 500)
+    _saveToHistory() {
+        // 只保存图片状态，不保存选区点
+        this.history = this.history.slice(0, this.historyIndex + 1);
+        
+        // 临时清除选区点以便保存干净的图片状态
+        const tempPoints = [...this.points], tempHLines=this.horizontalLines, tempVLines = this.verticalLines;
+        this.points = [];
+        this.horizontalLines = [];
+        this.verticalLines = [];
+        this.drawImage(); // 重绘不带选区的图片
+        
+        // 创建当前画布状态的图片数据
+        const currentState = {
+            imageData: this.currentCanvas.toDataURL(),
+            rotation: this.rotation,
+            filters: { main_canvas: this.filters.main_canvas }
+        };
+        
+        // 恢复选区点并重绘
+        this.points = tempPoints;
+        this.horizontalLines = tempHLines;
+        this.verticalLines = tempVLines;
+        this.drawImage();
+        
+        this.history.push(currentState);
+        this.historyIndex++;
+
+        if (this.history.length > 20) {
+            this.history.shift();
+            this.historyIndex--;
+        }
+
+        this.updateHistoryButtons();
+    }
+
+    undo() {
+        if (this.historyIndex > 0) {
+            this.historyIndex--;
+            const prevState = this.history[this.historyIndex];
+            
+            // 恢复图片状态
+            const img = new Image();
+            img.onload = () => {
+                // 创建画布并绘制图像
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                this.currentCanvas = canvas;
+                this.rotation = prevState.rotation;
+                this.filters = prevState.filters;
+                this.setupCanvasSize();
+                this.drawImage();
+                this.updateHistoryButtons();
+                this.clearSplitLines();
+                this.resetPoints()
+                this.updateFilterControls()
+            };
+            img.src = prevState.imageData;
+        }
+    }
+
+    redo() {
+        if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++;
+            const nextState = this.history[this.historyIndex];
+            
+            // 恢复图片状态
+            const img = new Image();
+            img.onload = () => {
+                // 创建画布并绘制图像
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                this.currentCanvas = canvas;
+                this.rotation = nextState.rotation;
+                this.filters = nextState.filters;
+                this.setupCanvasSize();
+                this.drawImage();
+                this.updateHistoryButtons();
+                this.clearSplitLines();
+                this.resetPoints()
+                this.updateFilterControls()
+            };
+            img.src = nextState.imageData;
+        }
+    }
+
+    updateHistoryButtons() {
+        document.getElementById('undoBtn').disabled = this.historyIndex <= 0;
+        document.getElementById('redoBtn').disabled = this.historyIndex >= this.history.length - 1;
+    }
+
+    updatePointCount() {
+        document.getElementById('cropBtn').disabled = this.points.length !== 4;
+        document.getElementById('cleanPointsBtn').disabled = this.points.length === 0;
+    }
+
+    cropImage() {
+        if (this.points.length !== 4) {
+            this.showStatus('请先选择四个点创建四边形选区！', 'error');
+            return;
+        }
+
+        try {
+            // 计算四边形的包围盒
+            const minX = Math.min(...this.points.map(p => p.x));
+            const maxX = Math.max(...this.points.map(p => p.x));
+            const minY = Math.min(...this.points.map(p => p.y));
+            const maxY = Math.max(...this.points.map(p => p.y));
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            // 创建新的canvas用于裁剪结果
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // 清空临时画布
+            tempCtx.clearRect(0, 0, width, height);
+
+            // 应用透视变换到临时画布
+            this.applyPerspectiveTransform(this.currentCanvas, tempCanvas);
+
+            // 将裁剪结果设置为新的主图片
+            this.currentCanvas = tempCanvas;
+            this.rotation = 0; // 重置旋转角度
+            this.setupCanvasSize();
+            this.resetPoints(false); // 重置选区点，但不清空历史记录
+            this.clearSplitLines(); // 清除切割线
+            this.currentMode = null; // 重置模式
+            // 重置按钮状态
+            document.getElementById('cropSwitchBtn').textContent = '点击开始裁剪';
+            document.getElementById('cropSwitchBtn').disabled = false;
+            document.getElementById('splitSwitchBtn').textContent = '点击开始切割';
+            document.getElementById('splitSwitchBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = false;
+            this.showStatus('裁剪成功！您可以继续编辑或下载结果。', 'success');
+            this.saveToHistory();
+
+        } catch (error) {
+            this.showStatus('裁剪失败：' + error.message, 'error');
+        }
+    }
+
+    applyPerspectiveTransform(sourceCanvas, targetCanvas) {
+        const targetCtx = targetCanvas.getContext('2d');
+        const targetWidth = targetCanvas.width;
+        const targetHeight = targetCanvas.height;
+
+        // 获取源图像数据
+        const sourceData = sourceCanvas.getContext('2d').getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+        const targetData = targetCtx.createImageData(targetWidth, targetHeight);
+
+        // 计算透视变换矩阵
+        const srcPoints = [
+            {x: 0, y: 0},
+            {x: targetWidth, y: 0},
+            {x: targetWidth, y: targetHeight},
+            {x: 0, y: targetHeight}
+        ];
+
+        const orderedPoints = this.orderQuadPoints(this.points)
+        const matrix = this.calculatePerspectiveMatrix(srcPoints, orderedPoints);
+
+        // 应用透视变换
+        for (let y = 0; y < targetHeight; y++) {
+            for (let x = 0; x < targetWidth; x++) {
+                const sourceX = matrix[0] * x + matrix[1] * y + matrix[2];
+                const sourceY = matrix[3] * x + matrix[4] * y + matrix[5];
+                const sourceW = matrix[6] * x + matrix[7] * y + matrix[8];
+
+                const normalizedX = sourceX / sourceW;
+                const normalizedY = sourceY / sourceW;
+
+                // 双线性插值
+                const pixel = this.bilinearInterpolate(sourceData, normalizedX, normalizedY, sourceCanvas.width, sourceCanvas.height);
+                const targetIndex = (y * targetWidth + x) * 4;
+
+                targetData.data[targetIndex] = pixel.r;
+                targetData.data[targetIndex + 1] = pixel.g;
+                targetData.data[targetIndex + 2] = pixel.b;
+                targetData.data[targetIndex + 3] = pixel.a;
+            }
+        }
+
+        targetCtx.putImageData(targetData, 0, 0);
+    }
+
+    calculatePerspectiveMatrix(srcPoints, dstPoints) {
+        const matrix = new Array(9);
+
+        // 构建线性方程组
+        const A = [];
+        const b = [];
+
+        for (let i = 0; i < 4; i++) {
+            A.push([srcPoints[i].x, srcPoints[i].y, 1, 0, 0, 0, -srcPoints[i].x * dstPoints[i].x, -srcPoints[i].y * dstPoints[i].x]);
+            A.push([0, 0, 0, srcPoints[i].x, srcPoints[i].y, 1, -srcPoints[i].x * dstPoints[i].y, -srcPoints[i].y * dstPoints[i].y]);
+            b.push(dstPoints[i].x);
+            b.push(dstPoints[i].y);
+        }
+
+        // 使用高斯消元法求解线性方程组
+        const solution = this.solveLinearSystem(A, b);
+
+        matrix[0] = solution[0];
+        matrix[1] = solution[1];
+        matrix[2] = solution[2];
+        matrix[3] = solution[3];
+        matrix[4] = solution[4];
+        matrix[5] = solution[5];
+        matrix[6] = solution[6];
+        matrix[7] = solution[7];
+        matrix[8] = 1;
+
+        return matrix;
+    }
+
+    solveLinearSystem(A, b) {
+        const n = A.length;
+        const augmented = A.map((row, i) => [...row, b[i]]);
+
+        // 高斯消元
+        for (let i = 0; i < n; i++) {
+            let maxRow = i;
+            for (let k = i + 1; k < n; k++) {
+                if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                    maxRow = k;
+                }
+            }
+
+            [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+
+            for (let k = i + 1; k < n; k++) {
+                const factor = augmented[k][i] / augmented[i][i];
+                for (let j = i; j < n + 1; j++) {
+                    augmented[k][j] -= factor * augmented[i][j];
+                }
+            }
+        }
+
+        // 回代
+        const solution = new Array(n);
+        for (let i = n - 1; i >= 0; i--) {
+            solution[i] = augmented[i][n];
+            for (let j = i + 1; j < n; j++) {
+                solution[i] -= augmented[i][j] * solution[j];
+            }
+            solution[i] /= augmented[i][i];
+        }
+
+        return solution;
+    }
+
+    bilinearInterpolate(imageData, x, y, width, height) {
+        const x1 = Math.floor(x);
+        const y1 = Math.floor(y);
+        const x2 = Math.min(x1 + 1, width - 1);
+        const y2 = Math.min(y1 + 1, height - 1);
+
+        const dx = x - x1;
+        const dy = y - y1;
+
+        const getPixel = (px, py) => {
+            const index = (py * width + px) * 4;
+            return {
+                r: imageData.data[index],
+                g: imageData.data[index + 1],
+                b: imageData.data[index + 2],
+                a: imageData.data[index + 3]
+            };
+        };
+
+        const p11 = getPixel(x1, y1);
+        const p12 = getPixel(x1, y2);
+        const p21 = getPixel(x2, y1);
+        const p22 = getPixel(x2, y2);
+
+        const interpolate = (c1, c2, c3, c4, dx, dy) => {
+            const r1 = c1 * (1 - dx) + c2 * dx;
+            const r2 = c3 * (1 - dx) + c4 * dx;
+            return r1 * (1 - dy) + r2 * dy;
+        };
+
+        return {
+            r: Math.round(interpolate(p11.r, p21.r, p12.r, p22.r, dx, dy)),
+            g: Math.round(interpolate(p11.g, p21.g, p12.g, p22.g, dx, dy)),
+            b: Math.round(interpolate(p11.b, p21.b, p12.b, p22.b, dx, dy)),
+            a: Math.round(interpolate(p11.a, p21.a, p12.a, p22.a, dx, dy))
+        };
+    }
+
+    // 把任意 4 个点重排成 [左上, 右上, 右下, 左下]
+    orderQuadPoints(pts) {
+        if (pts.length !== 4) throw new Error('need 4 points');
+        // 1. 几何中心
+        const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+        // 2. 带 atan2 的排序（逆时针）
+        const sorted = pts
+            .map(p => ({ ...p, angle: Math.atan2(p.y - cy, p.x - cx) }))
+            .sort((a, b) => a.angle - b.angle)
+            .map(({ x, y }) => ({ x, y })); // 去掉角度
+        return [
+            sorted[0], // 左上
+            sorted[1], // 右上
+            sorted[2], // 右下
+            sorted[3]  // 左下
+        ];
+    }
+
+    // 修改 downloadResult 方法以使用 currentCanvas
+    downloadResult() {
+        const canvases = document.getElementById('splitPreview')?.querySelectorAll('canvas') || [];
+        // 将主画布转换为临时canvas用于下载
+        const mainCanvas = document.createElement('canvas');
+        mainCanvas.width = this.currentCanvas.width;
+        mainCanvas.height = this.currentCanvas.height;
+        const ctx = mainCanvas.getContext('2d');
+        
+        // 应用主画布的滤镜
+        const currentFilters = this.filters.main_canvas || { brightness: 100, contrast: 100, saturate: 100, grayscale: 0 };
+        let filterStr = '';
+        filterStr += `brightness(${currentFilters.brightness}%) `;
+        filterStr += `contrast(${currentFilters.contrast}%) `;
+        filterStr += `saturate(${currentFilters.saturate}%) `;
+        filterStr += `grayscale(${currentFilters.grayscale}%) `;
+        ctx.filter = filterStr.trim();
+        
+        ctx.drawImage(this.currentCanvas, 0, 0);
+        ctx.filter = 'none'; // 重置滤镜
+        
+        const targetCanvases = [mainCanvas, ...canvases];
+
+        if (targetCanvases.length === 0) {
+            this.showStatus('无图片可下载！', 'error');
+            return;
+        }
+
+        const downloadSingleCanvas = (canvas, index) => {
+            const link = document.createElement('a');
+
+            link.download = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        targetCanvases.forEach((canvas, index) => {
+            setTimeout(() => {
+                downloadSingleCanvas(canvas, index);
+                // 最后一张图下载完成后显示成功提示
+                if (index === targetCanvases.length - 1) {
+                    this.showStatus(
+                        targetCanvases.length > 1
+                            ? `共 ${targetCanvases.length} 张图片下载成功！`
+                            : '图片下载成功！',
+                        'success'
+                    );
+                }
+            }, 100 * index);
+        });
+    }
+
+    showStatus(message, type) {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`;
+        statusEl.style.display = 'block';
+
+        setTimeout(() => {
+            this.hideStatus();
+        }, 3000);
+    }
+
+    hideStatus() {
+        document.getElementById('status').style.display = 'none';
+    }
+    
+    showMagnifier(clientX, clientY) {
+        if (!this.currentCanvas) return;
+        
+        this.magnifier.style.display = 'block';
+        this.magnifier.style.left = clientX - 110 + 'px';
+        this.magnifier.style.top = clientY + 'px';
+        
+        const magnifierCanvas = document.getElementById('magnifierCanvas');
+        const magnifierCoords = document.getElementById('magnifierCoords');
+        magnifierCanvas.width = 150;
+        magnifierCanvas.height = 150;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        // 修复坐标转换问题
+        let imgX = x * (this.currentCanvas.width / rect.width);
+        let imgY = y * (this.currentCanvas.height / rect.height);
+        imgX = Math.max(Math.min(imgX, this.currentCanvas.width), 0);
+        imgY = Math.max(Math.min(imgY, this.currentCanvas.height), 0);
+        
+        // 显示坐标信息
+        magnifierCoords.textContent = `(${Math.round(imgX)}, ${Math.round(imgY)})`;
+        
+        // 放大倍数
+        const zoom = 1.5;
+        
+        // 绘制放大区域
+        this.magnifierCtx.clearRect(0, 0, 150, 150);
+        this.magnifierCtx.imageSmoothingEnabled = false; // 禁用平滑以获得更清晰的像素级视图
+        this.magnifierCtx.drawImage(
+            this.currentCanvas,
+            imgX - 75/zoom, imgY - 75/zoom, 150/zoom, 150/zoom,
+            0, 0, 150, 150
+        );
+        
+        // 绘制中心点十字线
+        this.magnifierCtx.strokeStyle = 'rgba(255, 82, 82, 0.8)';
+        this.magnifierCtx.strokeStyle = '#0333ff';
+        this.magnifierCtx.lineWidth = 1;
+        this.magnifierCtx.beginPath();
+        this.magnifierCtx.setLineDash([1.5, 1.5]);
+        const centerRadius = 3
+        this.magnifierCtx.moveTo(75, 75 - centerRadius);
+        this.magnifierCtx.lineTo(75, 0);
+        this.magnifierCtx.moveTo(75, 75 + centerRadius);
+        this.magnifierCtx.lineTo(75, 150);
+        this.magnifierCtx.moveTo(75 - centerRadius, 75);
+        this.magnifierCtx.lineTo(0, 75);
+        this.magnifierCtx.moveTo(75 + centerRadius, 75);
+        this.magnifierCtx.lineTo(150, 75)
+        this.magnifierCtx.stroke();
+        
+        // 绘制中心点
+        this.magnifierCtx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        this.magnifierCtx.beginPath();
+        this.magnifierCtx.arc(75, 75, 3, 0, 2 * Math.PI);
+        this.magnifierCtx.fill();
+    }
+    
+    hideMagnifier() {
+        this.magnifier.style.display = 'none';
+    }
+
+    // 打印预览相关方法
+    showPrintPreview() {
+        if (!this.currentCanvas) {
+            this.showStatus('请先选择图片！', 'error');
+            return;
+        }
+
+        this.printPreview.style.display = 'block';
+        this.printPreview.classList.add('active')
+        this.editPreview.style.display = 'none';
+        this.editPreview.classList.remove('active')
+        this.updatePrintImages(true);
+        this.update_fixed_btn()
+        this.showStatus('已进入打印预览模式', 'success');
+    }
+
+    hidePrintPreview() {
+        this.printPreview.style.display = 'none';
+        this.printPreview.classList.remove('active')
+        this.editPreview.style.display = '';
+        this.editPreview.classList.add('active')
+        this.update_fixed_btn()
+    }
+
+    updatePaperPreview() {
+        if (!this.currentCanvas) return;
+        
+        // paper-previews
+        const paperPreviewsContainer = document.getElementById('paperPreviewsContainer');
+
+        // 清空纸张预览容器
+        paperPreviewsContainer.innerHTML = '';
+
+        // 获取当前选择的图片
+        const selectedImages = this.getSelectedImagesForPreview();
+
+        if (selectedImages.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.textContent = '请选择要打印的图片';
+            emptyMessage.style.color = '#81d4fa';
+            emptyMessage.style.textAlign = 'center';
+            emptyMessage.style.padding = '20px';
+            paperPreviewsContainer.appendChild(emptyMessage);
+            return;
+        }
+        const papers = this.createPaperPreview(paperPreviewsContainer.clientWidth);
+        papers.forEach(paper => paperPreviewsContainer.appendChild(paper));
+    }
+
+    createPaperPreview(containerWidth) {
+        const papers = []
+        if (!this.currentCanvas) return papers;
+
+        const paperAspectRatios = {
+            'A4': 210 / 297,
+            'A3': 297 / 420,
+            'A5': 148 / 210,
+            'Letter': 216 / 279,
+            'Legal': 216 / 356,
+            'Tabloid': 279 / 432,
+            'Statement': 140 / 216,
+            'Executive': 184 / 267,
+            'B4': 257 / 364,
+            'B5': 182 / 257
+        };
+
+        let aspectRatio = paperAspectRatios[this.currentPaper];
+        
+        // 根据纸张方向调整宽高比
+        if (this.orientationMode === 'landscape') {
+            aspectRatio = 1 / aspectRatio;
+        }
+
+        // 获取当前选择的图片
+        const selectedImages = this.getSelectedImagesForPreview();
+
+        if (selectedImages.length === 0) {
+            return papers;
+        }
+
+        // 根据布局模式计算纸张数量
+        const totalPages = this.calculateTotalPages(selectedImages.length);
+
+        // 为每张纸创建预览, 一个paperPreview一张纸
+        for (let page = 0; page < totalPages; page++) {
+            const paperPreview = document.createElement('div');
+            paperPreview.className = 'paper-preview';
+            paperPreview.style.aspectRatio = aspectRatio;
+
+            const paperLabel = document.createElement('div');
+            paperLabel.className = 'paper-label';
+            paperLabel.textContent = `${this.currentPaper} ${this.orientationMode === 'portrait' ? '纵向' : '横向'} (第${page + 1}页)`;
+
+            // 获取当前页的图片
+            const pageImages = this.getPageImages(selectedImages, page);
+
+            // 应用布局算法
+            this.applyLayout(pageImages, paperPreview, containerWidth, aspectRatio);
+
+            paperPreview.appendChild(paperLabel);
+            papers.push(paperPreview);
+        }
+        return papers
+    }
+
+    calculateTotalPages(totalImages) {
+        switch (this.layoutMode) {
+            case 'single':
+                return totalImages; // 一图一纸
+            case 'grid':
+                const gridCapacity = this.gridCols * this.gridRows;
+                return Math.ceil(totalImages / gridCapacity);
+            case 'vertical':
+                return Math.ceil(totalImages / 2);
+            case 'horizontal':
+                return Math.ceil(totalImages / 2);
+            default:
+                return Math.ceil(totalImages / 4);
+        }
+    }
+
+    getPageImages(selectedImages, page) {
+        let imagesPerPage;
+        switch (this.layoutMode) {
+            case 'single':
+                imagesPerPage = 1;
+                break;
+            case 'grid':
+                imagesPerPage = this.gridCols * this.gridRows;
+                break;
+            case 'vertical':
+            case 'horizontal':
+                imagesPerPage = 2;
+                break;
+            default:
+                imagesPerPage = 4;
+        }
+
+        const startIndex = page * imagesPerPage;
+        const endIndex = Math.min(startIndex + imagesPerPage, selectedImages.length);
+        return selectedImages.slice(startIndex, endIndex);
+    }
+
+    applyLayout(pageImages, paperPreview, containerWidth, aspectRatio) {
+        const containerHeight = containerWidth / aspectRatio;
+        const usableWidth = containerWidth - this.margin * 2 - (this.isPrintMode ? 0 : 4);
+        const usableHeight = containerHeight - this.margin * 2 - (this.isPrintMode ? 0 : 2);
+
+        paperPreview.style.cssText = `
+            width: 100%;
+            height: 100%;
+            padding: ${this.margin}px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: ${this.spacing}px;
+            aspect-ratio: ${aspectRatio};
+        `;
+
+        switch (this.layoutMode) {
+            case 'single':
+                this.applySingleLayout(pageImages, paperPreview, usableWidth, usableHeight);
+                break;
+            case 'grid':
+                this.applyGridLayout(pageImages, paperPreview, usableWidth, usableHeight);
+                break;
+            case 'vertical':
+                this.applyVerticalLayout(pageImages, paperPreview, usableWidth, usableHeight);
+                break;
+            case 'horizontal':
+                this.applyHorizontalLayout(pageImages, paperPreview, usableWidth, usableHeight);
+                break;
+        }
+    }
+
+    applySingleLayout(images, container, usableWidth, usableHeight) {
+        // 一图一纸：单张图片占满整个纸张
+        images.forEach(img => {
+            this.createImageElement(img, container, usableWidth, usableHeight, true);
+        });
+    }
+
+    applyGridLayout(images, container, usableWidth, usableHeight) {
+        const rows = this.gridRows;
+        const cols = this.gridCols;
+        const itemWidth = usableWidth / cols - this.spacing * (cols - 1) / cols;
+        const itemHeight = usableHeight / rows - this.spacing * (rows - 1) / rows;
+
+        // 创建网格容器
+        const gridContainer = document.createElement('div');
+        gridContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: ${this.spacing}px;
+            flex: 1;
+        `;
+
+        for (let row = 0; row < rows; row++) {
+            const rowContainer = document.createElement('div');
+            rowContainer.style.cssText = `
+                display: flex;
+                gap: ${this.spacing}px;
+                flex: 1;
+            `;
+
+            for (let col = 0; col < cols; col++) {
+                const index = row * cols + col;
+                if (index < images.length) {
+                    this.createImageElement(images[index], rowContainer, itemWidth, itemHeight, true);
+                } else {
+                    // 空白单元格
+                    const emptyCell = document.createElement('div');
+                    emptyCell.style.cssText = `
+                        width: ${itemWidth}px;
+                        height: ${itemHeight}px;
+                        background: rgba(255, 255, 255, 0.05);
+                        border: 1px dashed rgba(79, 195, 247, 0.3);
+                    `;
+                    emptyCell.classList.add('empty-cell')
+                    rowContainer.appendChild(emptyCell);
+                }
+            }
+
+            gridContainer.appendChild(rowContainer);
+        }
+
+        container.appendChild(gridContainer);
+    }
+
+    applyVerticalLayout(images, container, usableWidth, usableHeight) {
+        const itemHeight = usableHeight / images.length - this.spacing * (images.length - 1) / images.length;
+        images.forEach(img => {
+            this.createImageElement(img, container, usableWidth, itemHeight, true);
+        });
+    }
+
+    applyHorizontalLayout(images, container, usableWidth, usableHeight) {
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display: flex;
+            gap: ${this.spacing}px;
+            flex: 1;
+        `;
+
+        const itemWidth = usableWidth / images.length - this.spacing * (images.length - 1) / images.length;
+        images.forEach(img => {
+            this.createImageElement(img, row, itemWidth, usableHeight, true);
+        });
+
+        container.appendChild(row);
+    }
+
+    createImageElement(imageData, container, maxWidth, maxHeight, autoScale) {
+        const imgContainer = document.createElement('div');
+        imgContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+        `;
+
+        const img = document.createElement('img');
+        img.src = imageData.canvas.toDataURL();
+        img.alt = imageData.title;
+        const imgAspectRatio = imageData.canvas.width / imageData.canvas.height;
+
+        if (autoScale) {
+            // 根据缩放模式处理图片
+
+            switch (this.scaleMode) {
+                // 等比缩放
+                case 'contain':
+                    let width = maxWidth;
+                    let height = maxWidth / imgAspectRatio;
+
+                    if (height > maxHeight) {
+                        height = maxHeight;
+                        width = maxHeight * imgAspectRatio;
+                    }
+
+                    img.style.width = `${width}px`;
+                    img.style.height = `${height}px`;
+                    img.style.aspectRatio = `${imgAspectRatio}`;
+                    img.style.objectFit = 'contain';
+                    imgContainer.style.width = `${maxWidth}px`;
+                    imgContainer.style.height = `${maxHeight}px`;
+                    break;
+                // 拉伸平铺
+                case 'fill':
+                    img.style.width = `${maxWidth}px`;
+                    img.style.height = `${maxHeight}px`;
+                    img.style.objectFit = 'fill';
+                    imgContainer.style.width = `${maxWidth}px`;
+                    imgContainer.style.height = `${maxHeight}px`;
+                    break;
+                // 缩放占满
+                case 'cover':
+                    break;
+                // 原始尺寸
+                case 'scale-down':
+                default:
+                    img.style.maxWidth = `${maxWidth}px`;
+                    img.style.maxHeight = `${maxHeight}px`;
+                    img.style.width = 'auto';
+                    img.style.height = 'auto';
+                    img.style.objectFit = 'contain';
+                    imgContainer.style.width = `${maxWidth}px`;
+                    imgContainer.style.height = `${maxHeight}px`;
+
+            }
+        }
+        // 设置水平对齐
+        if(this.scaleMode !== 'fill') {
+            let containerAspectRatio = parseFloat(imgContainer.style.width) / parseFloat(imgContainer.style.height);
+            switch (this.horizontalAlign) {
+                case 'left':
+                    imgContainer.style.justifyContent = 'flex-start';
+                    imgContainer.style.flexDirection = 'row';
+                    img.style.width = imgAspectRatio < containerAspectRatio ? 'auto' : '100%';
+                    break;
+                case 'right':
+                    imgContainer.style.justifyContent = 'flex-end';
+                    imgContainer.style.flexDirection = 'row';
+                    img.style.width = imgAspectRatio < containerAspectRatio ? 'auto' : '100%';
+                    break;
+                case 'top':
+                    imgContainer.style.justifyContent = 'flex-start';
+                    imgContainer.style.flexDirection = 'column';
+                    img.style.height = imgAspectRatio < containerAspectRatio ? '100%' : 'auto';
+                    break;
+                case 'bottom':
+                    imgContainer.style.justifyContent = 'flex-end';
+                    imgContainer.style.flexDirection = 'column';
+                    img.style.height = imgAspectRatio < containerAspectRatio ? '100%' : 'auto';
+                    break
+                default:
+                    imgContainer.style.justifyContent = 'center';
+            }
+        }
+
+        imgContainer.appendChild(img);
+        container.appendChild(imgContainer);
+    }
+
+    getSelectedImagesForPreview() {
+        const selectedImages = [];
+
+        // 获取用户选择的图片类型
+        const printEdited = document.getElementById('printEdited').checked;
+        const printSplit = document.getElementById('printSplit').checked;
+
+        // 添加编辑后的图片
+        if (printEdited && this.currentCanvas) {
+            selectedImages.push({
+                type: 'edited',
+                title: '编辑后的图片',
+                canvas: this.createFilteredCanvas(this.currentCanvas)
+            });
+        }
+
+        // 添加切割后的图片
+        if (printSplit) {
+            const splitCanvases = document.querySelectorAll('#splitPreview canvas');
+            splitCanvases.forEach((canvas, index) => {
+                selectedImages.push({
+                    type: 'split',
+                    title: `切割图 ${index + 1}`,
+                    canvas: this.createFilteredCanvas(canvas)
+                });
+            });
+        }
+
+        return selectedImages;
+    }
+
+    updatePrintImages(init = false) {
+        this.selectedImages = [];
+
+        // 获取用户选择的图片类型
+        const printEdited = document.getElementById('printEdited').checked;
+        const printSplit = document.getElementById('printSplit').checked;
+
+        // 添加编辑后的图片（带滤镜效果）
+        if (printEdited && this.currentCanvas) {
+            this.selectedImages.push({
+                type: 'edited',
+                title: '编辑后的图片',
+                canvas: this.createFilteredCanvas(this.currentCanvas)
+            });
+        }
+
+        // 添加切割后的图片（带滤镜效果）
+        if (printSplit) {
+            const splitCanvases = document.querySelectorAll('#splitPreview canvas');
+            splitCanvases.forEach((canvas, index) => {
+                this.selectedImages.push({
+                    type: 'split',
+                    title: `切割图 ${index + 1}`,
+                    canvas: this.createFilteredCanvas(canvas)
+                });
+            });
+        }
+        if (init && this.selectedImages.length == 0 && this.currentCanvas) {
+            this.selectedImages.push({
+                type: 'edited',
+                title: '编辑后的图片',
+                canvas: this.createFilteredCanvas(this.currentCanvas)
+            });
+            document.getElementById('printEdited').checked = true;
+        }
+
+        // 更新纸张预览
+        this.updatePaperPreview();
+    }
+
+    createFilteredCanvas(source) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布尺寸
+        if (source instanceof HTMLImageElement) {
+            canvas.width = source.width;
+            canvas.height = source.height;
+        } else if (source instanceof HTMLCanvasElement) {
+            canvas.width = source.width;
+            canvas.height = source.height;
+        }
+
+        // 应用滤镜
+        let filterStr = '';
+        Object.entries(this.printFilters).forEach(([key, value]) => {
+            const unit = key === 'hue-rotate' ? 'deg' : '%';
+            filterStr += `${key}(${value}${unit}) `;
+        });
+
+        ctx.filter = filterStr.trim();
+
+        // 绘制图片
+        if (source instanceof HTMLImageElement) {
+            ctx.drawImage(source, 0, 0);
+        } else if (source instanceof HTMLCanvasElement) {
+            ctx.drawImage(source, 0, 0);
+        }
+
+        return canvas;
+    }
+
+    startPrint() {
+        if (this.selectedImages.length === 0) {
+            this.showStatus('请至少选择一张图片进行打印！', 'error');
+            return;
+        }
+
+        // 显示打印提示
+        const confirmPrint = confirm(`即将开始打印 ${this.selectedImages.length} 张图片。
+
+请在浏览器打印对话框中选择纸张大小【${this.currentPaper}】和打印方向【${this.orientationMode === 'portrait' ? '纵向' : '横向'}】。
+
+点击"确定"继续打印。`);
+
+        if (!confirmPrint) {
+            return  
+        }
+        
+        const printMain = document.getElementById('print-main') || document.createElement("div")
+        printMain.innerHTML = ''
+        printMain.id = 'print-main'
+        printMain.classList.add('paper-previews')
+        document.body.appendChild(printMain)
+        
+        // 添加打印样式
+        let printStyle = document.getElementById('print-style');
+        if (!printStyle) {
+            printStyle = document.createElement('style');
+            printStyle.id = 'print-style';
+            document.head.appendChild(printStyle);
+        }
+        
+        // 根据纸张方向设置打印样式
+        if (this.orientationMode === 'landscape') {
+            printStyle.innerHTML = `
+                @page {
+                    size: landscape;
+                }
+            `;
+        } else {
+            printStyle.innerHTML = `
+                @page {
+                    size: portrait;
+                }
+            `;
+        }
+
+        const paperWidthMM = {
+            'A4': [210, 297],
+            'A3': [297, 420],
+            'A5': [148, 210],
+            'Letter': [216, 279],
+            'Legal': [216, 356],
+            'Tabloid': [279, 432],
+            'Statement': [140, 216],
+            'Executive': [184, 267],
+            'B4': [257, 364],
+            'B5': [182, 257]
+        };
+        const widthIndex = this.orientationMode === 'landscape' ? 1 : 0;
+
+        let printWidth = (paperWidthMM[this.currentPaper][widthIndex] || 210) * 96 / 25.4; // 96 DPI
+        printMain.style.width = `${printWidth}px`;
+        this.isPrintMode = true;
+        const ps = this.createPaperPreview(printWidth)
+        ps.forEach(p => printMain.appendChild(p))
+        window.print();
+        this.isPrintMode = false;
+        printMain.remove()
+        printStyle.remove();
+    }
+
+    update_fixed_btn() {
+        const isPrintPreviewActive = !document.querySelector('.print-preview.active');
+        const backToEditBtn = document.getElementById('backToEditBtn');
+        const showPrintPreview = document.getElementById('previewStartPrintBtn');
+        const editStartPrintBtn = document.getElementById('editStartPrintBtn');
+        
+        backToEditBtn.classList.toggle('hidden', isPrintPreviewActive);
+        showPrintPreview.classList.toggle('hidden', isPrintPreviewActive);
+        editStartPrintBtn.classList.toggle('hidden', !isPrintPreviewActive);
+    }
+
+}
+
+// 初始化应用
+document.addEventListener('DOMContentLoaded', () => {
+    new AdvancedImageCropper();
+});
+
+function debounce(fn, delay = 200) {
+    let timer = null; 
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+function throttle(fn, interval = 100) {
+    let lastTime = 0; 
+    return function(...args) {
+        const currentTime = Date.now();
+        if (currentTime - lastTime >= interval) {
+            fn.apply(this, args);
+            lastTime = currentTime;
+        }
+    };
+}
+
+
+function checkFooter() {
+    const footer = document.getElementById('footer');
+    const hasScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+    if (!hasScroll) {footer.classList.add('show');}
+    else {footer.classList.toggle('show', window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 10)}
+}
+
+function scroll_handler(entries){
+    checkFooter()
+}
+new ResizeObserver(scroll_handler).observe(document.body);
+window.addEventListener('scroll', scroll_handler);
+window.addEventListener('resize', scroll_handler);
+window.addEventListener('load', scroll_handler);
